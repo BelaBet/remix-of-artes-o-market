@@ -107,7 +107,7 @@ var list_my_reviews_default = defineTool3({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "zoopaaixgiaownvvykcg";
+var projectRef = "yavqadxzaqfxvhfvuftn";
 var mcp_default = defineMcp({
   name: "feito-a-mao-mcp",
   title: "Feito \xE0 M\xE3o",
