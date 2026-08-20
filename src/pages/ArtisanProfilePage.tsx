@@ -112,9 +112,6 @@ const ArtisanProfilePage = ({ artisanIndex, onBack }: ArtisanProfilePageProps) =
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-terra text-background border-none px-6 py-2.5 cursor-pointer font-body font-medium text-[0.66rem] tracking-[0.14em] uppercase hover:brightness-90 transition-colors">
-              Enviar Mensagem
-            </button>
             <button className="bg-transparent text-foreground border border-foreground px-5 py-2.5 cursor-pointer font-body font-medium text-[0.66rem] tracking-[0.14em] uppercase hover:bg-foreground hover:text-background transition-all">
               Seguir
             </button>
