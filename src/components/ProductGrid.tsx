@@ -4,18 +4,23 @@ import { useCart } from "@/contexts/CartContext";
 
 interface ProductGridProps {
   products?: typeof PRODUCTS;
-  onAddToCart?: () => void;
 }
 
-const ProductGrid = ({ products = PRODUCTS, onAddToCart }: ProductGridProps) => {
+const ProductGrid = ({ products = PRODUCTS }: ProductGridProps) => {
   const { addItem } = useCart();
   const [favs, setFavs] = useState<Set<number>>(new Set());
-  const toggleFav = (id: number) => setFavs(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleFav = (id: number) =>
+    setFavs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4">
       {products.map((p) => (
-        <div key={p.id} className="bg-background cursor-pointer border border-border border-r-0 border-b-0 last:border-r [&:nth-child(4n)]:border-r hover:bg-parchment transition-colors relative group">
+        <div key={p.id} className="bg-background cursor-pointer border border-border border-r-0 border-b-0 last:border-r [&:nth-child(2n)]:border-r lg:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(4n)]:border-r hover:bg-parchment transition-colors relative group">
           <div className="aspect-square overflow-hidden relative bg-parchment">
             {p.badge && (
               <span className={`absolute top-2.5 left-2.5 text-[0.56rem] tracking-[0.1em] uppercase font-semibold px-2 py-0.5 z-[2] ${BADGE_MAP[p.badge].className}`}>
@@ -48,7 +53,7 @@ const ProductGrid = ({ products = PRODUCTS, onAddToCart }: ProductGridProps) => 
                 {p.oldPrice && <span className="text-[0.7rem] text-muted-foreground line-through ml-1">{formatPrice(p.oldPrice)}</span>}
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); addItem(p.id); onAddToCart?.(); }}
+                onClick={(e) => { e.stopPropagation(); addItem(p.id); }}
                 className="bg-transparent border border-border cursor-pointer px-3 py-1 font-body text-[0.6rem] tracking-[0.12em] uppercase font-medium hover:bg-foreground hover:text-background hover:border-foreground transition-all"
               >
                 Adicionar

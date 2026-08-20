@@ -19,7 +19,7 @@ const ArtisanAuthPage = ({ onSuccess, onBack }: ArtisanAuthPageProps) => {
     setLoading(true);
 
     if (mode === "register") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -29,9 +29,15 @@ const ArtisanAuthPage = ({ onSuccess, onBack }: ArtisanAuthPageProps) => {
       });
       if (error) {
         toast.error(error.message);
-      } else {
-        toast.success("Conta criada! Verifique seu email para confirmar.");
+      } else if (data.session) {
+        // Confirmação de email desativada: já existe sessão, pode seguir.
+        toast.success("Conta criada com sucesso!");
         onSuccess();
+      } else {
+        // Confirmação pendente: NÃO chamar onSuccess, não há sessão.
+        toast.success("Conta criada! Confirme seu email para acessar o painel.");
+        setMode("login");
+        setPassword("");
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });

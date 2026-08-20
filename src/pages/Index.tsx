@@ -20,7 +20,6 @@ import ExperiencesPage from "@/pages/ExperiencesPage";
 
 const Index = () => {
   const [page, setPage] = useState("home");
-  const [cart, setCart] = useState(2);
   const [selectedArtisan, setSelectedArtisan] = useState(0);
   const { user, signOut } = useAuth();
 
@@ -44,7 +43,6 @@ const Index = () => {
         <MarketHeader
           currentPage={page}
           onNavigate={handleNavigate}
-          cartCount={cart}
           isLoggedIn={!!user}
           onSignOut={signOut}
         />
@@ -71,7 +69,7 @@ const Index = () => {
                   Ver todos →
                 </button>
               </div>
-              <ProductGrid onAddToCart={() => setCart(c => c + 1)} />
+              <ProductGrid />
             </div>
           </section>
           <ArtisansSection onViewProfile={handleViewProfile} />
@@ -80,7 +78,7 @@ const Index = () => {
         </>
       )}
 
-      {page === "catalog" && <CatalogPage onAddToCart={() => setCart(c => c + 1)} />}
+      {page === "catalog" && <CatalogPage />}
       {page === "experiences" && <ExperiencesPage onExplore={() => handleNavigate("catalog")} />}
       {page === "dashboard" && user && <DashboardPage />}
       {page === "chat" && user && <ChatPage />}
@@ -94,7 +92,6 @@ const Index = () => {
         <ArtisanProfilePage
           artisanIndex={selectedArtisan}
           onBack={() => setPage("home")}
-          onAddToCart={() => setCart(c => c + 1)}
         />
       )}
     </div>

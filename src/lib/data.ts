@@ -82,6 +82,11 @@ export const STATUS_MAP: Record<string, { className: string; label: string }> = 
   ent: { className: "bg-espresso/10 text-espresso", label: "Entregue" },
 };
 
+const BRL = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
 export function formatPrice(brl: number): string {
-  return "R$ " + brl;
+  return BRL.format(brl);
 }

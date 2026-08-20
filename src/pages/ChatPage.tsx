@@ -5,6 +5,18 @@ import { ArrowLeft } from "lucide-react";
 const ChatPage = () => {
   const [activeConv, setActiveConv] = useState<number | null>(null);
   const [msgInput, setMsgInput] = useState("");
+  const [messages, setMessages] = useState(MESSAGES);
+
+  const sendMessage = () => {
+    const text = msgInput.trim();
+    if (!text) return;
+    const time = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setMessages((prev) => [...prev, { dir: "out", text, time }]);
+    setMsgInput("");
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[275px_1fr] h-[calc(100vh-110px)] lg:h-[80vh]">
@@ -60,7 +72,7 @@ const ChatPage = () => {
           </div>
         </div>
         <div className="flex-1 p-4 sm:p-5 overflow-y-auto flex flex-col gap-3">
-          {MESSAGES.map((m, i) => (
+          {messages.map((m, i) => (
             <div key={i} className={`max-w-[80%] sm:max-w-[63%] ${m.dir === "out" ? "self-end" : "self-start"}`}>
               <div className={`px-3 py-2 text-[0.8rem] sm:text-[0.82rem] leading-[1.6] font-light ${m.dir === "out" ? "bg-espresso text-parchment" : "bg-background border border-border"}`}>
                 {m.text}
@@ -77,10 +89,16 @@ const ChatPage = () => {
             placeholder="Digite sua mensagem…"
             value={msgInput}
             onChange={(e) => setMsgInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && setMsgInput("")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
           />
           <button
-            onClick={() => setMsgInput("")}
+            onClick={sendMessage}
+            aria-label="Enviar mensagem"
             className="bg-terra text-background border-none w-[36px] h-[36px] cursor-pointer text-[0.78rem] flex items-center justify-center hover:brightness-90 transition-colors shrink-0"
           >
             →

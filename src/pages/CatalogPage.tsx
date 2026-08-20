@@ -3,11 +3,7 @@ import ProductGrid from "@/components/ProductGrid";
 import { formatPrice } from "@/lib/data";
 import { SlidersHorizontal, X } from "lucide-react";
 
-interface CatalogPageProps {
-  onAddToCart: () => void;
-}
-
-const CatalogPage = ({ onAddToCart }: CatalogPageProps) => {
+const CatalogPage = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const Filters = (
@@ -80,7 +76,7 @@ const CatalogPage = ({ onAddToCart }: CatalogPageProps) => {
             <option>Relevância</option><option>Menor preço</option><option>Melhor avaliação</option><option>Mais novos</option>
           </select>
         </div>
-        <ProductGrid onAddToCart={onAddToCart} />
+        <ProductGrid />
       </div>
     </div>
   );

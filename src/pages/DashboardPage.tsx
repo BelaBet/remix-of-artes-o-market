@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { ORDERS, STATUS_MAP, formatPrice } from "@/lib/data";
+import { useAuth } from "@/contexts/AuthContext";
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
 
 const DashboardPage = () => {
+  const { user } = useAuth();
   const [tab, setTab] = useState("overview");
+  const displayName =
+    (user?.user_metadata?.display_name as string | undefined)?.trim() ||
+    user?.email?.split("@")[0] ||
+    "artesão";
   const tabs = [
     { key: "overview", icon: "⊞", label: "Visão Geral" },
     { key: "products", icon: "◈", label: "Produtos" },
@@ -34,7 +47,9 @@ const DashboardPage = () => {
         </div>
       </aside>
       <main className="p-4 md:p-7 bg-background">
-        <div className="font-display text-[1.5rem] sm:text-[1.8rem] mb-1">Bom dia, Ana! 👋</div>
+        <div className="font-display text-[1.5rem] sm:text-[1.8rem] mb-1">
+          {greeting()}, {displayName}! 👋
+        </div>
         <div className="text-[0.72rem] sm:text-[0.74rem] text-muted-foreground mb-5 sm:mb-6">Resumo da sua loja hoje</div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {[
