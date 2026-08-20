@@ -60,13 +60,19 @@ const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut
           </div>
 
           {/* Desktop search */}
-          <div className="hidden md:flex flex-1 max-w-[320px] items-center gap-2 border-b border-border pb-1 focus-within:border-terra transition-colors">
-            <span className="text-muted-foreground text-[0.88rem]">⌕</span>
+          <form
+            onSubmit={submitSearch}
+            className="hidden md:flex flex-1 max-w-[320px] items-center gap-2 border-b border-border pb-1 focus-within:border-terra transition-colors"
+          >
+            <button type="submit" aria-label="Buscar" className="text-muted-foreground text-[0.88rem]">⌕</button>
             <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
               className="flex-1 border-none bg-transparent outline-none font-body text-[0.8rem] text-foreground placeholder:text-muted-foreground"
               placeholder="Buscar artesanato, artesãos…"
             />
-          </div>
+          </form>
+
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1 ml-auto shrink-0">
