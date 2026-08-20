@@ -1,5 +1,7 @@
+import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
-import { IMAGES, formatPrice } from "@/lib/data";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatCents } from "@/lib/data";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import {
   Sheet,
@@ -11,15 +13,24 @@ import {
 } from "@/components/ui/sheet";
 
 const CartDrawer = () => {
-  const { items, isOpen, setIsOpen, updateQty, removeItem, totalItems, totalPrice } = useCart();
+  const { items, isOpen, setIsOpen, updateQty, removeItem, totalItems, totalCents } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const goToCheckout = () => {
+    setIsOpen(false);
+    if (!user) {
+      navigate("/login?next=/checkout");
+      return;
+    }
+    navigate("/checkout");
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetContent className="flex flex-col p-0 w-full sm:max-w-[420px]">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
-          <SheetTitle className="font-display text-xl font-medium">
-            Seu Carrinho
-          </SheetTitle>
+          <SheetTitle className="font-display text-xl font-medium">Seu Carrinho</SheetTitle>
           <SheetDescription className="text-xs tracking-[0.1em] uppercase text-muted-foreground">
             {totalItems} {totalItems === 1 ? "item" : "itens"}
           </SheetDescription>
@@ -42,11 +53,13 @@ const CartDrawer = () => {
               {items.map((item) => (
                 <div key={item.id} className="flex gap-3 pb-4 border-b border-border last:border-b-0">
                   <div className="w-20 h-20 shrink-0 overflow-hidden bg-parchment">
-                    <img
-                      src={IMAGES[item.img]}
-                      alt={item.name}
-                      className="w-full h-full object-cover saturate-[0.86]"
-                    />
+                    {item.imageUrl && (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover saturate-[0.86]"
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-display font-medium text-sm leading-tight mb-0.5 truncate">
@@ -73,7 +86,7 @@ const CartDrawer = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-display text-sm font-medium">
-                          {formatPrice(item.price * item.qty)}
+                          {formatCents(item.priceCents * item.qty)}
                         </span>
                         <button
                           onClick={() => removeItem(item.id)}
@@ -91,12 +104,15 @@ const CartDrawer = () => {
             <SheetFooter className="flex-col gap-3 px-6 py-5 border-t border-border bg-parchment">
               <div className="flex items-center justify-between w-full">
                 <span className="text-xs tracking-[0.1em] uppercase text-muted-foreground font-medium">Subtotal</span>
-                <span className="font-display text-lg font-medium">{formatPrice(totalPrice)}</span>
+                <span className="font-display text-lg font-medium">{formatCents(totalCents)}</span>
               </div>
               <p className="text-[0.6rem] text-muted-foreground tracking-wide">
-                Frete calculado no checkout · Parcele em até 6x
+                Valor confirmado pelo servidor no checkout · Parcele em até 6x
               </p>
-              <button className="w-full bg-foreground text-background font-body text-xs tracking-[0.14em] uppercase font-medium py-3 hover:bg-espresso transition-colors">
+              <button
+                onClick={goToCheckout}
+                className="w-full bg-foreground text-background font-body text-xs tracking-[0.14em] uppercase font-medium py-3 hover:bg-espresso transition-colors"
+              >
                 Finalizar Compra
               </button>
               <button

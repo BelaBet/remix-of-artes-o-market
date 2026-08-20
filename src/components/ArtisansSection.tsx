@@ -14,9 +14,6 @@ const ArtisansSection = ({ onViewProfile }: ArtisansSectionProps) => (
             Artesãos <em className="italic text-gold-light">em destaque</em>
           </h2>
         </div>
-        <button className="bg-transparent border-none cursor-pointer font-body text-[0.64rem] sm:text-[0.66rem] tracking-[0.14em] uppercase text-parchment/30 hover:text-gold-light transition-colors self-start sm:self-auto">
-          Ver todos →
-        </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px">
         {ARTISANS.map((a, i) => (
@@ -53,9 +50,6 @@ const ArtisansSection = ({ onViewProfile }: ArtisansSectionProps) => (
                   className="flex-1 bg-terra text-background border-none py-2 cursor-pointer font-body text-[0.62rem] sm:text-[0.64rem] tracking-[0.14em] uppercase font-medium hover:brightness-90 transition-colors"
                 >
                   Visitar
-                </button>
-                <button className="bg-transparent text-parchment/60 border border-parchment/20 px-3 py-2 cursor-pointer font-body text-[0.62rem] sm:text-[0.64rem] tracking-[0.14em] uppercase font-medium hover:border-parchment hover:text-parchment transition-all">
-                  Seguir
                 </button>
               </div>
             </div>

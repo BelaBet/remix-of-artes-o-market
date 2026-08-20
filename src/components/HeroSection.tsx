@@ -2,9 +2,10 @@ import { IMAGES, formatPrice } from "@/lib/data";
 
 interface HeroSectionProps {
   onExplore: () => void;
+  onOpenShop?: () => void;
 }
 
-const HeroSection = ({ onExplore }: HeroSectionProps) => {
+const HeroSection = ({ onExplore, onOpenShop }: HeroSectionProps) => {
   const heroItems = [
     { img: "pottery", name: "Cerâmica Torneada", price: 175 },
     { img: "stone", name: "Pedra-Sabão Pintada", price: 129 },
@@ -39,7 +40,7 @@ const HeroSection = ({ onExplore }: HeroSectionProps) => {
             >
               Explorar Catálogo
             </button>
-            <button className="bg-transparent text-parchment border border-parchment/30 px-6 sm:px-7 py-3 cursor-pointer font-body font-medium text-[0.68rem] sm:text-[0.71rem] tracking-[0.14em] uppercase hover:border-parchment transition-all">
+            <button onClick={onOpenShop} className="bg-transparent text-parchment border border-parchment/30 px-6 sm:px-7 py-3 cursor-pointer font-body font-medium text-[0.68rem] sm:text-[0.71rem] tracking-[0.14em] uppercase hover:border-parchment transition-all">
               Abrir Minha Loja
             </button>
           </div>

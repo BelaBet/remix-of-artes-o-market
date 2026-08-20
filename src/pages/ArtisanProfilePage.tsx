@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { IMAGES, PRODUCTS, ARTISANS, formatPrice, BADGE_MAP } from "@/lib/data";
-import { useCart } from "@/contexts/CartContext";
+import { IMAGES, PRODUCTS, ARTISANS } from "@/lib/data";
+import ProductGrid from "@/components/ProductGrid";
+import { DEMO_ITEMS } from "@/lib/products";
 
 interface ArtisanProfilePageProps {
   artisanIndex: number;
@@ -28,26 +28,19 @@ const DEMO_REVIEWS = [
 ];
 
 const ArtisanProfilePage = ({ artisanIndex, onBack }: ArtisanProfilePageProps) => {
-  const { addItem } = useCart();
-  const [favs, setFavs] = useState<Set<number>>(new Set());
   const artisan = ARTISANS[artisanIndex];
   const reviews = DEMO_REVIEWS[artisanIndex] || DEMO_REVIEWS[0];
 
   // Get products associated with this artisan (demo mapping)
-  const artisanProducts = artisanIndex === 0
-    ? PRODUCTS.filter(p => ["stone", "pottery", "ceramic"].includes(p.img))
+  const imgs = artisanIndex === 0
+    ? ["stone", "pottery", "ceramic"]
     : artisanIndex === 1
-    ? PRODUCTS.filter(p => ["weave", "basket"].includes(p.img))
-    : PRODUCTS.filter(p => ["wood", "straw1", "straw2"].includes(p.img));
+    ? ["weave", "basket"]
+    : ["wood", "straw1", "straw2"];
+  const demoIds = new Set(PRODUCTS.filter((p) => imgs.includes(p.img)).map((p) => `demo-${p.id}`));
+  const artisanProducts = DEMO_ITEMS.filter((p) => demoIds.has(p.id));
 
   const avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
-  const toggleFav = (id: number) =>
-    setFavs((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   return (
     <div className="min-h-[80vh]">
@@ -111,11 +104,6 @@ const ArtisanProfilePage = ({ artisanIndex, onBack }: ArtisanProfilePageProps) =
               }
             </p>
           </div>
-          <div className="flex gap-3">
-            <button className="bg-transparent text-foreground border border-foreground px-5 py-2.5 cursor-pointer font-body font-medium text-[0.66rem] tracking-[0.14em] uppercase hover:bg-foreground hover:text-background transition-all">
-              Seguir
-            </button>
-          </div>
         </div>
       </div>
 
@@ -131,46 +119,10 @@ const ArtisanProfilePage = ({ artisanIndex, onBack }: ArtisanProfilePageProps) =
             </div>
             <span className="font-display text-[0.85rem] sm:text-[0.9rem] text-muted-foreground">{artisanProducts.length} produtos</span>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {artisanProducts.map((p) => (
-              <div key={p.id} className="bg-background cursor-pointer border border-border border-r-0 border-b-0 last:border-r hover:bg-parchment transition-colors relative group">
-                <div className="aspect-square overflow-hidden relative bg-parchment">
-                  {p.badge && (
-                    <span className={`absolute top-2.5 left-2.5 text-[0.56rem] tracking-[0.1em] uppercase font-semibold px-2 py-0.5 z-[2] ${BADGE_MAP[p.badge].className}`}>
-                      {BADGE_MAP[p.badge].label}
-                    </span>
-                  )}
-                  <button
-                    className={`absolute top-2.5 right-2.5 bg-background/90 border border-border w-7 h-7 rounded-full cursor-pointer text-[0.78rem] flex items-center justify-center transition-all z-[2] hover:bg-background ${favs.has(p.id) ? "text-terra" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); toggleFav(p.id); }}
-                  >
-                    {favs.has(p.id) ? "♥" : "♡"}
-                  </button>
-                  <img src={IMAGES[p.img]} alt={p.name} className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-[550ms] saturate-[0.86]" />
-                </div>
-                <div className="p-3 sm:p-3.5 pb-4">
-                  <div className="font-display font-medium text-[0.92rem] sm:text-[0.98rem] leading-tight mb-1">{p.name}</div>
-                  <div className="text-[0.64rem] sm:text-[0.67rem] tracking-[0.05em] text-muted-foreground mb-3">{p.city}</div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <div className="text-gold text-[0.62rem] sm:text-[0.64rem] tracking-[1px]">
-                        {"★".repeat(p.stars)}{"☆".repeat(5 - p.stars)}
-                        <span className="text-muted-foreground text-[0.6rem] ml-0.5 tracking-normal">({p.reviews})</span>
-                      </div>
-                      <span className="font-display text-[1.05rem] sm:text-[1.15rem] font-medium">{formatPrice(p.price)}</span>
-                      {p.oldPrice && <span className="text-[0.68rem] sm:text-[0.7rem] text-muted-foreground line-through ml-1">{formatPrice(p.oldPrice)}</span>}
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); addItem(p.id); }}
-                      className="bg-transparent border border-border cursor-pointer px-3 py-1 font-body text-[0.58rem] sm:text-[0.6rem] tracking-[0.12em] uppercase font-medium hover:bg-foreground hover:text-background hover:border-foreground transition-all self-start sm:self-auto"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="border border-dashed border-terra/50 bg-terra/5 px-4 py-3 mb-5 text-[0.74rem] text-muted-foreground">
+            Vitrine de <strong className="text-terra">exemplo</strong>: este artesão ainda não cadastrou produtos reais.
           </div>
+          <ProductGrid products={artisanProducts} demo />
         </div>
       </section>
 

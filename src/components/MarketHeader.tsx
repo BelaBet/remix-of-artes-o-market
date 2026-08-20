@@ -5,17 +5,27 @@ import { useCart } from "@/contexts/CartContext";
 interface MarketHeaderProps {
   currentPage: string;
   onNavigate: (page: string) => void;
+  onSearch?: (term: string) => void;
   isLoggedIn?: boolean;
   onSignOut?: () => void;
 }
 
-const MarketHeader = ({ currentPage, onNavigate, isLoggedIn, onSignOut }: MarketHeaderProps) => {
+const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut }: MarketHeaderProps) => {
   const { setIsOpen, totalItems } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [term, setTerm] = useState("");
   const displayCount = totalItems;
 
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch?.(term.trim());
+    setSearchOpen(false);
+    setMenuOpen(false);
+  };
+
   const go = (p: string) => { onNavigate(p); setMenuOpen(false); };
+
 
   const tabs = [
     { key: "home", label: "Início" },
@@ -50,13 +60,19 @@ const MarketHeader = ({ currentPage, onNavigate, isLoggedIn, onSignOut }: Market
           </div>
 
           {/* Desktop search */}
-          <div className="hidden md:flex flex-1 max-w-[320px] items-center gap-2 border-b border-border pb-1 focus-within:border-terra transition-colors">
-            <span className="text-muted-foreground text-[0.88rem]">⌕</span>
+          <form
+            onSubmit={submitSearch}
+            className="hidden md:flex flex-1 max-w-[320px] items-center gap-2 border-b border-border pb-1 focus-within:border-terra transition-colors"
+          >
+            <button type="submit" aria-label="Buscar" className="text-muted-foreground text-[0.88rem]">⌕</button>
             <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
               className="flex-1 border-none bg-transparent outline-none font-body text-[0.8rem] text-foreground placeholder:text-muted-foreground"
               placeholder="Buscar artesanato, artesãos…"
             />
-          </div>
+          </form>
+
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1 ml-auto shrink-0">
@@ -152,14 +168,16 @@ const MarketHeader = ({ currentPage, onNavigate, isLoggedIn, onSignOut }: Market
 
         {/* Mobile search input */}
         {searchOpen && (
-          <div className="md:hidden pb-3 px-1 flex items-center gap-2 border-b border-border">
+          <form onSubmit={submitSearch} className="md:hidden pb-3 px-1 flex items-center gap-2 border-b border-border">
             <Search className="w-4 h-4 text-muted-foreground" />
             <input
               autoFocus
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
               className="flex-1 border-none bg-transparent outline-none font-body text-sm py-1 placeholder:text-muted-foreground"
               placeholder="Buscar artesanato, artesãos…"
             />
-          </div>
+          </form>
         )}
 
         {/* Mobile menu panel */}

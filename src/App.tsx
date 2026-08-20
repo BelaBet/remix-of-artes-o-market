@@ -11,6 +11,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import OAuthConsent from "./pages/OAuthConsent";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderDetailsPage from "./pages/OrderDetailsPage";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,8 @@ const App = () => (
             <CartDrawer />
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/pedido/:id" element={<OrderDetailsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="*" element={<NotFound />} />

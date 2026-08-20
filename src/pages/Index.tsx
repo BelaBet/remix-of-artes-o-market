@@ -18,6 +18,8 @@ import ArtisanAuthPage from "@/pages/ArtisanAuthPage";
 import ArtisanProfilePage from "@/pages/ArtisanProfilePage";
 import ExperiencesPage from "@/pages/ExperiencesPage";
 import SEO from "@/components/SEO";
+import { useProducts, DEMO_ITEMS } from "@/lib/products";
+import { Loader2 } from "lucide-react";
 
 const pageSEO: Record<string, { title: string; description: string }> = {
   home: {
@@ -42,9 +44,35 @@ const pageSEO: Record<string, { title: string; description: string }> = {
   },
 };
 
+const FeaturedProducts = () => {
+  const { data, isLoading } = useProducts({ limit: 8 });
+  const list = data ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin" />
+      </div>
+    );
+  }
+  if (list.length === 0) {
+    return (
+      <>
+        <div className="border border-dashed border-terra/50 bg-terra/5 px-4 py-3 mb-5 text-[0.74rem] text-muted-foreground">
+          Ainda não há produtos cadastrados. As peças abaixo são{" "}
+          <strong className="text-terra">conteúdo de exemplo</strong> e não estão à venda.
+        </div>
+        <ProductGrid products={DEMO_ITEMS} demo />
+      </>
+    );
+  }
+  return <ProductGrid products={list} />;
+};
+
 const Index = () => {
   const [page, setPage] = useState("home");
   const [selectedArtisan, setSelectedArtisan] = useState(0);
+  const [search, setSearch] = useState("");
   const { user, signOut } = useAuth();
 
   const handleNavigate = (target: string) => {
@@ -53,6 +81,12 @@ const Index = () => {
       return;
     }
     setPage(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSearch = (term: string) => {
+    setSearch(term);
+    setPage("catalog");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -77,6 +111,7 @@ const Index = () => {
         <MarketHeader
           currentPage={page}
           onNavigate={handleNavigate}
+          onSearch={handleSearch}
           isLoggedIn={!!user}
           onSignOut={signOut}
         />
@@ -84,13 +119,16 @@ const Index = () => {
 
       {page === "home" && (
         <>
-          <HeroSection onExplore={() => handleNavigate("catalog")} />
+          <HeroSection
+            onExplore={() => handleNavigate("catalog")}
+            onOpenShop={() => handleNavigate("dashboard")}
+          />
           <MarqueeStrip />
           <TextureBand />
           <StorySection />
           <ShippingSection />
           <CategoriesSection onNavigate={() => handleNavigate("catalog")} />
-          <section className="px-9 pb-16">
+          <section className="px-4 md:px-9 pb-16">
             <div className="max-w-[1320px] mx-auto">
               <div className="flex items-end justify-between mb-8 pb-3 border-b border-border">
                 <div>
@@ -99,11 +137,14 @@ const Index = () => {
                     Peças <em className="italic text-terra">em destaque</em>
                   </h2>
                 </div>
-                <button onClick={() => handleNavigate("catalog")} className="bg-transparent border-none cursor-pointer font-body text-[0.66rem] tracking-[0.14em] uppercase text-muted-foreground hover:text-terra transition-colors">
+                <button
+                  onClick={() => handleNavigate("catalog")}
+                  className="bg-transparent border-none cursor-pointer font-body text-[0.66rem] tracking-[0.14em] uppercase text-muted-foreground hover:text-terra transition-colors"
+                >
                   Ver todos →
                 </button>
               </div>
-              <ProductGrid />
+              <FeaturedProducts />
             </div>
           </section>
           <ArtisansSection onViewProfile={handleViewProfile} />
@@ -112,21 +153,15 @@ const Index = () => {
         </>
       )}
 
-      {page === "catalog" && <CatalogPage />}
+      {page === "catalog" && <CatalogPage search={search} />}
       {page === "experiences" && <ExperiencesPage onExplore={() => handleNavigate("catalog")} />}
       {page === "dashboard" && user && <DashboardPage />}
       {page === "chat" && user && <ChatPage />}
       {page === "artisan-login" && (
-        <ArtisanAuthPage
-          onSuccess={() => setPage("dashboard")}
-          onBack={() => setPage("home")}
-        />
+        <ArtisanAuthPage onSuccess={() => setPage("dashboard")} onBack={() => setPage("home")} />
       )}
       {page === "artisan-profile" && (
-        <ArtisanProfilePage
-          artisanIndex={selectedArtisan}
-          onBack={() => handleNavigate("home")}
-        />
+        <ArtisanProfilePage artisanIndex={selectedArtisan} onBack={() => handleNavigate("home")} />
       )}
     </div>
   );
