@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { IMAGES, PRODUCTS, ARTISANS, formatPrice, BADGE_MAP } from "@/lib/data";
+import { useCart } from "@/contexts/CartContext";
 
 interface ArtisanProfilePageProps {
   artisanIndex: number;
   onBack: () => void;
-  onAddToCart: () => void;
 }
 
 // Demo reviews per artisan
@@ -27,7 +27,8 @@ const DEMO_REVIEWS = [
   ],
 ];
 
-const ArtisanProfilePage = ({ artisanIndex, onBack, onAddToCart }: ArtisanProfilePageProps) => {
+const ArtisanProfilePage = ({ artisanIndex, onBack }: ArtisanProfilePageProps) => {
+  const { addItem } = useCart();
   const [favs, setFavs] = useState<Set<number>>(new Set());
   const artisan = ARTISANS[artisanIndex];
   const reviews = DEMO_REVIEWS[artisanIndex] || DEMO_REVIEWS[0];
@@ -40,7 +41,13 @@ const ArtisanProfilePage = ({ artisanIndex, onBack, onAddToCart }: ArtisanProfil
     : PRODUCTS.filter(p => ["wood", "straw1", "straw2"].includes(p.img));
 
   const avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
-  const toggleFav = (id: number) => setFavs(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleFav = (id: number) =>
+    setFavs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div className="min-h-[80vh]">
@@ -157,7 +164,7 @@ const ArtisanProfilePage = ({ artisanIndex, onBack, onAddToCart }: ArtisanProfil
                       {p.oldPrice && <span className="text-[0.68rem] sm:text-[0.7rem] text-muted-foreground line-through ml-1">{formatPrice(p.oldPrice)}</span>}
                     </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
+                      onClick={(e) => { e.stopPropagation(); addItem(p.id); }}
                       className="bg-transparent border border-border cursor-pointer px-3 py-1 font-body text-[0.58rem] sm:text-[0.6rem] tracking-[0.12em] uppercase font-medium hover:bg-foreground hover:text-background hover:border-foreground transition-all self-start sm:self-auto"
                     >
                       Adicionar

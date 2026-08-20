@@ -5,16 +5,15 @@ import { useCart } from "@/contexts/CartContext";
 interface MarketHeaderProps {
   currentPage: string;
   onNavigate: (page: string) => void;
-  cartCount: number;
   isLoggedIn?: boolean;
   onSignOut?: () => void;
 }
 
-const MarketHeader = ({ currentPage, onNavigate, cartCount, isLoggedIn, onSignOut }: MarketHeaderProps) => {
+const MarketHeader = ({ currentPage, onNavigate, isLoggedIn, onSignOut }: MarketHeaderProps) => {
   const { setIsOpen, totalItems } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const displayCount = totalItems || cartCount;
+  const displayCount = totalItems;
 
   const go = (p: string) => { onNavigate(p); setMenuOpen(false); };
 
@@ -95,7 +94,12 @@ const MarketHeader = ({ currentPage, onNavigate, cartCount, isLoggedIn, onSignOu
               onClick={() => setIsOpen(true)}
               className="bg-transparent border-none cursor-pointer font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase text-muted-foreground px-3 py-1.5 hover:text-foreground transition-colors whitespace-nowrap"
             >
-              Carrinho <span className="inline-flex items-center justify-center bg-terra text-background w-[15px] h-[15px] rounded-full text-[0.56rem] font-semibold ml-0.5">{displayCount}</span>
+              Carrinho
+              {displayCount > 0 && (
+                <span className="inline-flex items-center justify-center bg-terra text-background w-[15px] h-[15px] rounded-full text-[0.56rem] font-semibold ml-0.5">
+                  {displayCount}
+                </span>
+              )}
             </button>
 
             {isLoggedIn ? (
