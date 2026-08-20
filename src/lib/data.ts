@@ -90,3 +90,8 @@ const BRL = new Intl.NumberFormat("pt-BR", {
 export function formatPrice(brl: number): string {
   return BRL.format(brl);
 }
+
+/** Valores do banco vêm em centavos (inteiro). Divide só na hora de exibir. */
+export function formatCents(cents: number): string {
+  return BRL.format((cents ?? 0) / 100);
+}
