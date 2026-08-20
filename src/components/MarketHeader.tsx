@@ -168,14 +168,16 @@ const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut
 
         {/* Mobile search input */}
         {searchOpen && (
-          <div className="md:hidden pb-3 px-1 flex items-center gap-2 border-b border-border">
+          <form onSubmit={submitSearch} className="md:hidden pb-3 px-1 flex items-center gap-2 border-b border-border">
             <Search className="w-4 h-4 text-muted-foreground" />
             <input
               autoFocus
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
               className="flex-1 border-none bg-transparent outline-none font-body text-sm py-1 placeholder:text-muted-foreground"
               placeholder="Buscar artesanato, artesãos…"
             />
-          </div>
+          </form>
         )}
 
         {/* Mobile menu panel */}
