@@ -14,6 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
+      order_items: {
+        Row: {
+          artisan_user_id: string | null
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          unit_price_cents: number
+        }
+        Insert: {
+          artisan_user_id?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          unit_price_cents: number
+        }
+        Update: {
+          artisan_user_id?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          boleto_barcode: string | null
+          boleto_url: string | null
+          buyer_document: string
+          buyer_email: string
+          buyer_name: string
+          buyer_phone: string | null
+          buyer_user_id: string | null
+          created_at: string
+          id: string
+          pagarme_charge_id: string | null
+          pagarme_order_id: string | null
+          paid_at: string | null
+          payment_method: string
+          pix_expires_at: string | null
+          pix_qr_code: string | null
+          pix_qr_code_url: string | null
+          shipping_address: Json | null
+          status: string
+          subtotal_cents: number
+          total_cents: number
+          updated_at: string
+        }
+        Insert: {
+          boleto_barcode?: string | null
+          boleto_url?: string | null
+          buyer_document: string
+          buyer_email: string
+          buyer_name: string
+          buyer_phone?: string | null
+          buyer_user_id?: string | null
+          created_at?: string
+          id?: string
+          pagarme_charge_id?: string | null
+          pagarme_order_id?: string | null
+          paid_at?: string | null
+          payment_method: string
+          pix_expires_at?: string | null
+          pix_qr_code?: string | null
+          pix_qr_code_url?: string | null
+          shipping_address?: Json | null
+          status?: string
+          subtotal_cents: number
+          total_cents: number
+          updated_at?: string
+        }
+        Update: {
+          boleto_barcode?: string | null
+          boleto_url?: string | null
+          buyer_document?: string
+          buyer_email?: string
+          buyer_name?: string
+          buyer_phone?: string | null
+          buyer_user_id?: string | null
+          created_at?: string
+          id?: string
+          pagarme_charge_id?: string | null
+          pagarme_order_id?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          pix_expires_at?: string | null
+          pix_qr_code?: string | null
+          pix_qr_code_url?: string | null
+          shipping_address?: Json | null
+          status?: string
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          artisan_user_id: string
+          category: string | null
+          city: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          price_cents: number
+          state: string | null
+          stock: number
+          updated_at: string
+        }
+        Insert: {
+          artisan_user_id: string
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          price_cents: number
+          state?: string | null
+          stock?: number
+          updated_at?: string
+        }
+        Update: {
+          artisan_user_id?: string
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          price_cents?: number
+          state?: string | null
+          stock?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
