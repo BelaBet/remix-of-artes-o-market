@@ -187,8 +187,8 @@ const FeaturedCard = ({ exp }: { exp: Experience }) => (
           <div className="font-display text-[1.5rem] sm:text-[1.8rem] text-gold-light">{formatPrice(exp.price)}</div>
           <div className="text-[0.62rem] tracking-[0.12em] uppercase text-parchment/40 mt-0.5">{exp.meta}</div>
         </div>
-        <button className="bg-terra text-background border-none px-5 sm:px-7 py-3 cursor-pointer font-body font-medium text-[0.68rem] sm:text-[0.71rem] tracking-[0.14em] uppercase hover:brightness-90 hover:-translate-y-px transition-all whitespace-nowrap">
-          Garantir Vaga
+        <button disabled title="Funcionalidade em breve" className="disabled:opacity-50 disabled:cursor-not-allowed bg-terra text-background border-none px-5 sm:px-7 py-3 cursor-pointer font-body font-medium text-[0.68rem] sm:text-[0.71rem] tracking-[0.14em] uppercase hover:brightness-90 hover:-translate-y-px transition-all whitespace-nowrap">
+          Em breve
         </button>
       </div>
     </div>
@@ -217,8 +217,8 @@ const ExperienceCard = ({ exp }: { exp: Experience }) => (
       <div className="mb-4"><Stars rating={exp.rating} /> <span className="text-[0.68rem] text-muted-foreground">({exp.reviews})</span></div>
       <div className="mt-auto flex items-center justify-between gap-3 pt-4 border-t border-border flex-wrap">
         <div className="font-display text-[1.15rem] sm:text-[1.25rem] text-terra">{formatPrice(exp.price)}</div>
-        <button className="bg-terra text-background px-3.5 sm:px-4 py-2 font-body text-[0.62rem] sm:text-[0.66rem] tracking-[0.14em] uppercase hover:bg-[hsl(18,56%,36%)] transition-colors whitespace-nowrap">
-          Participar
+        <button disabled title="Funcionalidade em breve" className="disabled:opacity-50 disabled:cursor-not-allowed bg-terra text-background px-3.5 sm:px-4 py-2 font-body text-[0.62rem] sm:text-[0.66rem] tracking-[0.14em] uppercase hover:bg-[hsl(18,56%,36%)] transition-colors whitespace-nowrap">
+          Em breve
         </button>
       </div>
     </div>
@@ -255,8 +255,8 @@ const ExperiencesPage = ({ onExplore }: { onExplore?: () => void }) => {
             >
               Explorar Experiências
             </button>
-            <button className="bg-transparent text-parchment border border-parchment/30 px-7 py-3 font-body font-medium text-[0.71rem] tracking-[0.14em] uppercase hover:border-parchment transition-all">
-              Quero Ensinar
+            <button disabled title="Funcionalidade em breve" className="disabled:opacity-50 disabled:cursor-not-allowed bg-transparent text-parchment border border-parchment/30 px-7 py-3 font-body font-medium text-[0.71rem] tracking-[0.14em] uppercase hover:border-parchment transition-all">
+              Em breve
             </button>
           </div>
           <div className="flex flex-wrap gap-7 mt-10 pt-7 border-t border-parchment/10">
@@ -326,8 +326,8 @@ const ExperiencesPage = ({ onExplore }: { onExplore?: () => void }) => {
                 Instrutores em <em className="italic text-terra">destaque</em>
               </h2>
             </div>
-            <button className="font-body text-[0.66rem] tracking-[0.14em] uppercase text-muted-foreground hover:text-terra transition-colors inline-flex items-center gap-1">
-              Ver todos <ChevronRight className="w-3.5 h-3.5" />
+            <button disabled title="Funcionalidade em breve" className="disabled:opacity-50 disabled:cursor-not-allowed font-body text-[0.66rem] tracking-[0.14em] uppercase text-muted-foreground hover:text-terra transition-colors inline-flex items-center gap-1">
+              Em breve <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -374,8 +374,8 @@ const ExperiencesPage = ({ onExplore }: { onExplore?: () => void }) => {
           <p className="text-[0.88rem] font-light leading-[1.85] text-parchment/55 mb-7">
             Transforme sua técnica em renda extra. Crie sua primeira experiência em poucos minutos.
           </p>
-          <button className="bg-terra text-background px-8 py-3.5 font-body font-medium text-[0.72rem] tracking-[0.14em] uppercase hover:brightness-90 hover:-translate-y-px transition-all">
-            Quero Ensinar
+          <button disabled title="Funcionalidade em breve" className="disabled:opacity-50 disabled:cursor-not-allowed bg-terra text-background px-8 py-3.5 font-body font-medium text-[0.72rem] tracking-[0.14em] uppercase hover:brightness-90 hover:-translate-y-px transition-all">
+            Em breve
           </button>
         </div>
       </section>
