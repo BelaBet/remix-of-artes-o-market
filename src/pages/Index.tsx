@@ -17,6 +17,30 @@ import ChatPage from "@/pages/ChatPage";
 import ArtisanAuthPage from "@/pages/ArtisanAuthPage";
 import ArtisanProfilePage from "@/pages/ArtisanProfilePage";
 import ExperiencesPage from "@/pages/ExperiencesPage";
+import SEO from "@/components/SEO";
+
+const pageSEO: Record<string, { title: string; description: string }> = {
+  home: {
+    title: "Feito à Mão — Artesanato Brasileiro Autoral",
+    description:
+      "Descubra artesanato brasileiro autoral: peças únicas, feitas à mão, direto de quem cria. Valorize artistas e a cultura popular brasileira.",
+  },
+  catalog: {
+    title: "Comprar Artesanato Brasileiro — Feito à Mão",
+    description:
+      "Explore peças artesanais brasileiras, produtos autorais e arte popular. Encontre cerâmica, decoração, acessórios e presentes feitos à mão.",
+  },
+  experiences: {
+    title: "Experiências com Artesanato Brasileiro — Feito à Mão",
+    description:
+      "Conheça experiências ligadas ao artesanato brasileiro, à cultura popular e às histórias de quem transforma tradição em arte.",
+  },
+  "artisan-profile": {
+    title: "Artesão Brasileiro — Perfil e Peças Autorais | Feito à Mão",
+    description:
+      "Conheça a história do artesão, seu trabalho e suas peças autorais no marketplace Feito à Mão.",
+  },
+};
 
 const Index = () => {
   const [page, setPage] = useState("home");
@@ -29,15 +53,25 @@ const Index = () => {
       return;
     }
     setPage(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleViewProfile = (index: number) => {
     setSelectedArtisan(index);
     setPage("artisan-profile");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const seo = pageSEO[page] ?? pageSEO.home;
 
   return (
     <div>
+      <SEO
+        title={seo.title}
+        description={seo.description}
+        path={page === "home" ? "/" : `/${page}`}
+        noindex={page === "artisan-login" || page === "dashboard" || page === "chat"}
+      />
       <div className="grain-overlay" />
       {page !== "artisan-login" && (
         <MarketHeader
@@ -91,7 +125,7 @@ const Index = () => {
       {page === "artisan-profile" && (
         <ArtisanProfilePage
           artisanIndex={selectedArtisan}
-          onBack={() => setPage("home")}
+          onBack={() => handleNavigate("home")}
         />
       )}
     </div>
