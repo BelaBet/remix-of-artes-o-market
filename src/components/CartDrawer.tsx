@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,23 +12,28 @@ import {
   SheetFooter,
   SheetDescription,
 } from "@/components/ui/sheet";
+import CheckoutModal from "@/components/CheckoutModal";
 
 const CartDrawer = () => {
   const { items, isOpen, setIsOpen, updateQty, removeItem, totalItems, totalCents } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+
   const goToCheckout = () => {
     setIsOpen(false);
     if (!user) {
+      // Sem sessão não dá para criar pedido: a edge function exige JWT.
       navigate("/login?next=/checkout");
       return;
     }
-    navigate("/checkout");
+    setCheckoutOpen(true);
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetContent className="flex flex-col p-0 w-full sm:max-w-[420px]">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
           <SheetTitle className="font-display text-xl font-medium">Seu Carrinho</SheetTitle>
@@ -125,7 +131,9 @@ const CartDrawer = () => {
           </>
         )}
       </SheetContent>
-    </Sheet>
+      </Sheet>
+      <CheckoutModal open={checkoutOpen} onOpenChange={setCheckoutOpen} />
+    </>
   );
 };
 

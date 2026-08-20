@@ -1,20 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { toast } from "sonner";
-import { useCart } from "@/contexts/CartContext";
 
 // Verifica se há nova versão a cada 30 min (e ao voltar para a aba).
 const INTERVALO_CHECAGEM = 30 * 60 * 1000;
 
+/**
+ * Atualização automática do app.
+ *
+ * O carrinho é persistido em localStorage, então recarregar não perde a compra
+ * — por isso a atualização pode ser aplicada sozinha. A única espera é um
+ * pagamento em andamento: recarregar no meio da cobrança deixaria o cliente sem
+ * saber se ela foi enviada. O CheckoutModal marca esse período no <body>.
+ */
 const PWAUpdater = () => {
-  const { totalItems } = useCart();
-  // Ref para o handler de update ler o carrinho atual sem virar dependência.
-  const itensRef = useRef(totalItems);
-  itensRef.current = totalItems;
-
   const {
     offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
@@ -28,7 +30,6 @@ const PWAUpdater = () => {
       };
 
       const timer = setInterval(checar, INTERVALO_CHECAGEM);
-      // Checa também quando o usuário volta para a aba.
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") checar();
       });
@@ -37,7 +38,6 @@ const PWAUpdater = () => {
     },
   });
 
-  // Avisa uma única vez que o app funciona offline.
   useEffect(() => {
     if (!offlineReady) return;
     toast.success("Pronto para uso offline", {
@@ -46,30 +46,26 @@ const PWAUpdater = () => {
     setOfflineReady(false);
   }, [offlineReady, setOfflineReady]);
 
-  // Nova versão disponível.
   useEffect(() => {
     if (!needRefresh) return;
 
-    // Com carrinho ativo, NÃO recarregar sozinho: o carrinho está em memória
-    // e o reload descartaria os itens. Deixa o cliente escolher a hora.
-    if (itensRef.current > 0) {
-      toast("Nova versão disponível", {
-        description: "Atualize quando terminar — seu carrinho será reiniciado.",
-        duration: Infinity,
-        action: {
-          label: "Atualizar",
-          onClick: () => updateServiceWorker(true),
-        },
-        onDismiss: () => setNeedRefresh(false),
-      });
-      return;
-    }
+    let cancelled = false;
+    const aplicar = () => {
+      if (cancelled) return;
+      // Nunca recarregar durante uma cobrança em andamento.
+      if (document.body.dataset.paymentInFlight === "true") {
+        setTimeout(aplicar, 3000);
+        return;
+      }
+      toast.info("Atualizando para a versão mais recente…", { duration: 2000 });
+      setTimeout(() => updateServiceWorker(true), 700);
+    };
+    aplicar();
 
-    // Sem nada em risco: atualiza sozinho.
-    toast.info("Atualizando para a versão mais recente…", { duration: 2000 });
-    const t = setTimeout(() => updateServiceWorker(true), 700);
-    return () => clearTimeout(t);
-  }, [needRefresh, setNeedRefresh, updateServiceWorker]);
+    return () => {
+      cancelled = true;
+    };
+  }, [needRefresh, updateServiceWorker]);
 
   return null;
 };
