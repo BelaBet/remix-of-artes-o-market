@@ -5,17 +5,27 @@ import { useCart } from "@/contexts/CartContext";
 interface MarketHeaderProps {
   currentPage: string;
   onNavigate: (page: string) => void;
+  onSearch?: (term: string) => void;
   isLoggedIn?: boolean;
   onSignOut?: () => void;
 }
 
-const MarketHeader = ({ currentPage, onNavigate, isLoggedIn, onSignOut }: MarketHeaderProps) => {
+const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut }: MarketHeaderProps) => {
   const { setIsOpen, totalItems } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [term, setTerm] = useState("");
   const displayCount = totalItems;
 
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch?.(term.trim());
+    setSearchOpen(false);
+    setMenuOpen(false);
+  };
+
   const go = (p: string) => { onNavigate(p); setMenuOpen(false); };
+
 
   const tabs = [
     { key: "home", label: "Início" },
