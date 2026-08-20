@@ -27,3 +27,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# PWA (gerados no build)
+dev-dist
+public/sw.js
+public/workbox-*.js
