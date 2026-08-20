@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCents, realToCents, centsToReal, CATEGORY_OPTIONS } from "@/lib/products";
+import { reaisToCents, centsToReaisInput, CATEGORY_OPTIONS } from "@/lib/products";
+import { formatCents } from "@/lib/data";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, ImagePlus } from "lucide-react";
 
@@ -59,7 +60,7 @@ const ProductsTab = () => {
 
   const save = useMutation({
     mutationFn: async (f: FormState) => {
-      const priceCents = realToCents(f.price);
+      const priceCents = reaisToCents(f.price);
       if (!f.name.trim()) throw new Error("Informe o nome da peça.");
       if (!priceCents || priceCents <= 0) throw new Error("Informe um preço válido.");
       const payload = {
@@ -171,7 +172,7 @@ const ProductsTab = () => {
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
               />
               <div className="text-[0.6rem] text-muted-foreground mt-1">
-                Será gravado como {realToCents(form.price) || 0} centavos
+                Será gravado como {reaisToCents(form.price) || 0} centavos
               </div>
             </div>
             <div>
@@ -305,7 +306,7 @@ const ProductsTab = () => {
                       id: p.id,
                       name: p.name,
                       description: p.description ?? "",
-                      price: centsToReal(p.price_cents),
+                      price: centsToReaisInput(p.price_cents),
                       category: p.category ?? CATEGORY_OPTIONS[0],
                       stock: String(p.stock),
                       city: p.city ?? "",
