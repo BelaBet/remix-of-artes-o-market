@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import SocialAuthButtons from "@/components/SocialAuthButtons";
 
 interface ArtisanAuthPageProps {
   onSuccess: () => void;
@@ -23,7 +24,7 @@ const ArtisanAuthPage = ({ onSuccess, onBack }: ArtisanAuthPageProps) => {
         email,
         password,
         options: {
-          data: { display_name: displayName },
+          data: { display_name: displayName, role: "artisan" },
           emailRedirectTo: window.location.origin,
         },
       });
@@ -65,6 +66,15 @@ const ArtisanAuthPage = ({ onSuccess, onBack }: ArtisanAuthPageProps) => {
               : "Crie sua conta e comece a vender seu artesanato"
             }
           </p>
+        </div>
+
+        <div className="bg-background border border-border p-8 mb-4">
+          <SocialAuthButtons next="/" role="artisan" disabled={loading} />
+          <div className="flex items-center gap-3 mt-6">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-[0.58rem] tracking-[0.16em] uppercase text-muted-foreground">ou com e-mail</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-background border border-border p-8">

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoles } from "@/hooks/useRoles";
+import BecomeArtisan from "@/pages/BecomeArtisan";
 import MarketHeader from "@/components/MarketHeader";
 import HeroSection from "@/components/HeroSection";
 import MarqueeStrip from "@/components/MarqueeStrip";
@@ -74,10 +76,16 @@ const Index = () => {
   const [selectedArtisan, setSelectedArtisan] = useState(0);
   const [search, setSearch] = useState("");
   const { user, signOut } = useAuth();
+  const { isArtisan, loading: rolesLoading } = useRoles();
 
   const handleNavigate = (target: string) => {
     if ((target === "dashboard" || target === "chat") && !user) {
       setPage("artisan-login");
+      return;
+    }
+    // Logado, mas ainda sem perfil de artesão: oferece abrir a loja.
+    if ((target === "dashboard" || target === "chat") && !rolesLoading && !isArtisan) {
+      setPage("become-artisan");
       return;
     }
     setPage(target);
@@ -104,7 +112,7 @@ const Index = () => {
         title={seo.title}
         description={seo.description}
         path={page === "home" ? "/" : `/${page}`}
-        noindex={page === "artisan-login" || page === "dashboard" || page === "chat"}
+        noindex={["artisan-login", "dashboard", "chat", "become-artisan"].includes(page)}
       />
       <div className="grain-overlay" />
       {page !== "artisan-login" && (
@@ -155,7 +163,10 @@ const Index = () => {
 
       {page === "catalog" && <CatalogPage search={search} />}
       {page === "experiences" && <ExperiencesPage onExplore={() => handleNavigate("catalog")} />}
-      {page === "dashboard" && user && <DashboardPage />}
+      {page === "dashboard" && user && isArtisan && <DashboardPage />}
+      {page === "become-artisan" && user && (
+        <BecomeArtisan onDone={() => setPage("dashboard")} onBack={() => setPage("home")} />
+      )}
       {page === "chat" && user && <ChatPage />}
       {page === "artisan-login" && (
         <ArtisanAuthPage onSuccess={() => setPage("dashboard")} onBack={() => setPage("home")} />
