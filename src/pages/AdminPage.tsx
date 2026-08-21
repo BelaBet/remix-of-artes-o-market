@@ -71,9 +71,16 @@ const AdminPage = () => {
             Superadmin
           </span>
         </div>
-        <p className="text-[0.74rem] text-muted-foreground mb-6">
+        <p className="text-[0.74rem] text-muted-foreground mb-4">
           Toda alteração feita aqui fica registrada na aba Auditoria, com autor e valores anteriores.
         </p>
+
+        <a
+          href="/admin/vendas"
+          className="inline-block mb-6 border border-foreground px-4 py-2 text-[0.66rem] tracking-[0.14em] uppercase hover:bg-foreground hover:text-background transition-colors"
+        >
+          Central de vendas →
+        </a>
 
         <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto">
           {tabs.map((t) => (
