@@ -351,14 +351,9 @@ const ExperiencesPage = ({ onExplore }: { onExplore?: () => void }) => {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <button className="bg-espresso text-cream px-5 py-2.5 font-body text-[0.68rem] tracking-[0.14em] uppercase hover:bg-foreground transition-colors">
-                  Ver Experiências
-                </button>
-                <button className="bg-transparent border border-foreground text-foreground px-5 py-2.5 font-body text-[0.68rem] tracking-[0.14em] uppercase hover:bg-foreground hover:text-background transition-colors">
-                  Seguir
-                </button>
-              </div>
+              {/* "Ver Experiências" e "Seguir" foram removidos: a vertical de
+                  experiências não tem backend e não existe tabela de follows.
+                  Botão que não faz nada custa mais confiança do que entrega. */}
             </div>
           </div>
         </div>
