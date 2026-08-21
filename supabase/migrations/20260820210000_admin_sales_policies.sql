@@ -1,25 +1,27 @@
 -- Super-admin sales dashboard security.
--- The UI is not the security boundary: these policies enforce admin access in Postgres.
-
-alter table public.orders enable row level security;
-alter table public.order_items enable row level security;
-alter table public.profiles enable row level security;
-
-create policy "admins can manage orders"
-on public.orders
-for all
-to authenticated
-using (public.has_role('admin'::public.app_role, auth.uid()))
-with check (public.has_role('admin'::public.app_role, auth.uid()));
-
-create policy "admins can read order items"
-on public.order_items
-for select
-to authenticated
-using (public.has_role('admin'::public.app_role, auth.uid()));
-
-create policy "admins can read profiles"
-on public.profiles
-for select
-to authenticated
-using (public.has_role('admin'::public.app_role, auth.uid()));
+-- The UI is not the security boundary: admin access is enforced in Postgres.
+--
+-- Esta migration foi esvaziada de propósito. A versão original:
+--
+--   1) chamava public.has_role('admin'::app_role, auth.uid()) — ordem de
+--      argumentos invertida. A assinatura real é has_role(_user_id uuid,
+--      _role app_role), então a função não existe nessa ordem e a migration
+--      falhava ao aplicar.
+--
+--   2) concedia "for all" em public.orders, o que inclui DELETE: um admin
+--      poderia apagar registros financeiros. Pedido pago é documento
+--      contábil e não deve ser removível pela interface.
+--
+-- As policies equivalentes já foram criadas na migration de superadmin, com
+-- a assinatura correta e escopo restrito:
+--
+--   orders       -> SELECT + UPDATE (sem DELETE), toda escrita auditada
+--   order_items  -> SELECT
+--   profiles     -> ALL
+--
+-- Além disso, o trigger protect_gateway_link mantém total_cents,
+-- pagarme_order_id e pagarme_charge_id imutáveis após a cobrança existir,
+-- preservando a conciliação com o extrato do gateway.
+--
+-- Nada a executar aqui.
+SELECT 1;

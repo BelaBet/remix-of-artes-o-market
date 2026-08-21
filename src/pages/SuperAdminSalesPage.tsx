@@ -62,7 +62,10 @@ const SuperAdminSalesPage = () => {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, nextStatus }: { id: string; nextStatus: string }) => {
-      const patch: Record<string, unknown> = { status: nextStatus, updated_at: new Date().toISOString() };
+      const patch: { status: string; updated_at: string; paid_at?: string } = {
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+      };
       if (nextStatus === "paid") patch.paid_at = new Date().toISOString();
       const { error } = await supabase.from("orders").update(patch).eq("id", id);
       if (error) throw error;
@@ -114,7 +117,7 @@ const SuperAdminSalesPage = () => {
   }, [data, itemsByOrder, profileMap]);
 
   const exportCsv = () => {
-    const rows = filteredOrders.map((o) => [o.id, o.created_at, o.buyer_name, o.buyer_email, o.payment_method, o.status, o.subtotal_cents / 100, o.total_cents / 100].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(","));
+    const rows = filteredOrders.map((o) => [o.id, o.created_at, o.buyer_name, o.buyer_email, o.payment_method, o.status, o.subtotal_cents / 100, o.total_cents / 100].map((v) => `"${String(v ?? "").split('"').join('""')}"`).join(","));
     const csv = ["id,data,cliente,email,pagamento,status,subtotal,total", ...rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a");

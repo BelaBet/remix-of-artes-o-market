@@ -42,7 +42,7 @@ const DashboardPage = () => {
   const periodRevenue = periodPaid.reduce((s, o) => s + o.artisanTotalCents, 0);
 
   const exportStatement = () => {
-    const rows = periodPaid.map((o) => [o.id, o.created_at, o.buyer_name, o.payment_method, o.status, o.artisanTotalCents / 100].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(","));
+    const rows = periodPaid.map((o) => [o.id, o.created_at, o.buyer_name, o.payment_method, o.status, o.artisanTotalCents / 100].map((v) => `"${String(v ?? "").split('"').join('""')}"`).join(","));
     const csv = ["pedido,data,cliente,pagamento,status,valor_artesao", ...rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `extrato-vendas-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);

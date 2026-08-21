@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import OAuthConsent from "./pages/OAuthConsent";
 import AdminPage from "./pages/AdminPage";
+import SuperAdminSalesPage from "./pages/SuperAdminSalesPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailsPage from "./pages/OrderDetailsPage";
 
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/pedido/:id" element={<OrderDetailsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/vendas" element={<SuperAdminSalesPage />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
