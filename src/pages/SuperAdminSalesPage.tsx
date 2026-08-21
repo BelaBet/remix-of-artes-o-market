@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 interface OrderItem { id: string; order_id: string; artisan_user_id: string | null; product_name: string; quantity: number; unit_price_cents: number }
-interface Order { id: string; buyer_name: string; buyer_email: string; buyer_phone: string | null; buyer_document: string; status: string; payment_method: string; subtotal_cents: number; total_cents: number; created_at: string; paid_at: string | null; updated_at: string; shipping_address: unknown }
+interface Order { id: string; buyer_name: string; buyer_email: string; buyer_phone: string | null; status: string; payment_method: string; subtotal_cents: number; total_cents: number; created_at: string; paid_at: string | null; updated_at: string; shipping_address: unknown }
 interface Profile { user_id: string; display_name: string | null; shop_name: string | null; city: string | null; state: string | null }
 
 const statusClass = (status: string) => {
@@ -59,7 +59,7 @@ const SuperAdminSalesPage = () => {
     enabled: !!user && adminQuery.data === true,
     queryFn: async () => {
       const [{ data: orders, error: ordersError }, { data: items, error: itemsError }, { data: profiles, error: profilesError }] = await Promise.all([
-        supabase.from("orders").select("*").order("created_at", { ascending: false }),
+        supabase.from("orders").select("id, buyer_name, buyer_email, buyer_phone, status, payment_method, subtotal_cents, total_cents, created_at, paid_at, updated_at, shipping_address").order("created_at", { ascending: false }),
         supabase.from("order_items").select("id, order_id, artisan_user_id, product_name, quantity, unit_price_cents"),
         supabase.from("profiles").select("user_id, display_name, shop_name, city, state"),
       ]);

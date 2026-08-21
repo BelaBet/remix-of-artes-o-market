@@ -174,7 +174,22 @@ export function useCheckout() {
         },
       });
 
-      if (fnError) throw new Error("Não foi possível concluir o pedido. Tente novamente.");
+      // supabase-js transforma qualquer status != 2xx em fnError e descarta o
+      // corpo. Sem ler o corpo, "estoque insuficiente", "CPF inválido" e
+      // "cartão recusado" virariam todos um genérico "tente novamente".
+      if (fnError) {
+        let motivo: string | null = null;
+        const ctx = (fnError as { context?: Response }).context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            const corpo = await ctx.json();
+            if (typeof corpo?.error === "string") motivo = corpo.error;
+          } catch {
+            /* corpo não era JSON: cai na mensagem genérica */
+          }
+        }
+        throw new Error(motivo ?? "Não foi possível concluir o pedido. Tente novamente.");
+      }
       if (!data?.order_id) throw new Error(data?.error ?? "Não foi possível concluir o pedido.");
 
       // O cartão fica só na memória do formulário; descartamos assim que usado.

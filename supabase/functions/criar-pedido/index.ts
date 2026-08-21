@@ -163,17 +163,24 @@ Deno.serve(async (req) => {
         type: 'individual',
         document,
         document_type: 'CPF',
-        ...(phoneDigits.length >= 10
-          ? {
-              phones: {
-                mobile_phone: {
-                  country_code: '55',
-                  area_code: phoneDigits.slice(-11, -9) || phoneDigits.slice(0, 2),
-                  number: phoneDigits.slice(-9),
-                },
+        ...(() => {
+          // Aceita 10 (fixo), 11 (celular) ou com o 55 na frente. A versão
+          // anterior usava slice(-11,-9), que num fixo de 10 dígitos devolvia
+          // DDD "1" e número errado, e o gateway recusava a cobrança.
+          const nacional = phoneDigits.startsWith('55') && phoneDigits.length > 11
+            ? phoneDigits.slice(2)
+            : phoneDigits
+          if (nacional.length !== 10 && nacional.length !== 11) return {}
+          return {
+            phones: {
+              mobile_phone: {
+                country_code: '55',
+                area_code: nacional.slice(0, 2),
+                number: nacional.slice(2),
               },
-            }
-          : {}),
+            },
+          }
+        })(),
       },
       items: lines.map((l) => ({
         amount: l.unit_price_cents,
@@ -248,13 +255,10 @@ Deno.serve(async (req) => {
     await admin.from('orders').update(update).eq('id', order.id)
 
     if (paid) {
+      // Decremento atômico: ler e depois gravar permitiria vender a mesma
+      // última peça duas vezes em compras simultâneas.
       for (const l of lines) {
-        const p = byId.get(l.product_id)
-        if (p) {
-          await admin.from('products')
-            .update({ stock: Math.max(0, p.stock - l.quantity) })
-            .eq('id', l.product_id)
-        }
+        await admin.rpc('decrement_stock', { _product_id: l.product_id, _qty: l.quantity })
       }
     }
 

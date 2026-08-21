@@ -144,14 +144,7 @@ export function useMyProducts(userId?: string) {
 }
 
 /** "129,90" -> 12990. Nunca usa float para dinheiro. */
-export function reaisToCents(input: string): number {
-  const cleaned = input.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
-  if (!cleaned) return 0;
-  const [intPart, decPart = ""] = cleaned.split(".");
-  const cents = (decPart + "00").slice(0, 2);
-  return Number(intPart || "0") * 100 + Number(cents);
-}
+// reaisToCents/centsToReaisInput vivem em @/lib/money (módulo puro,
+// sem dependência do Supabase, para poderem ser testados isoladamente).
+export { reaisToCents, centsToReaisInput } from "@/lib/money";
 
-export function centsToReaisInput(cents: number): string {
-  return (cents / 100).toFixed(2).replace(".", ",");
-}

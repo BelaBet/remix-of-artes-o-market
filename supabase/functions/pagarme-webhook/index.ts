@@ -90,15 +90,11 @@ Deno.serve(async (req) => {
         .from('order_items')
         .select('product_id, quantity')
         .eq('order_id', order.id)
+      // Decremento atômico (ver decrement_stock): evita venda dupla quando
+      // dois webhooks ou duas compras chegam ao mesmo tempo.
       for (const it of items ?? []) {
         if (!it.product_id) continue
-        const { data: p } = await admin
-          .from('products').select('stock').eq('id', it.product_id).maybeSingle()
-        if (p) {
-          await admin.from('products')
-            .update({ stock: Math.max(0, p.stock - it.quantity) })
-            .eq('id', it.product_id)
-        }
+        await admin.rpc('decrement_stock', { _product_id: it.product_id, _qty: it.quantity })
       }
     }
 
