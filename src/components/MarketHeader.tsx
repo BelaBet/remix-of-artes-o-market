@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Menu, X, Search, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useRoles } from "@/hooks/useRoles";
 
 interface MarketHeaderProps {
   currentPage: string;
@@ -12,6 +13,7 @@ interface MarketHeaderProps {
 
 const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut }: MarketHeaderProps) => {
   const { setIsOpen, totalItems } = useCart();
+  const { isAdmin } = useRoles();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -117,6 +119,15 @@ const MarketHeader = ({ currentPage, onNavigate, onSearch, isLoggedIn, onSignOut
                 </span>
               )}
             </button>
+
+            {isLoggedIn && isAdmin && (
+              <a
+                href="/admin"
+                className="hidden md:inline-block bg-espresso text-gold-light font-body text-[0.6rem] font-semibold tracking-[0.14em] uppercase px-2.5 py-1 hover:brightness-125 transition-all whitespace-nowrap"
+              >
+                Admin
+              </a>
+            )}
 
             {isLoggedIn ? (
               <button
