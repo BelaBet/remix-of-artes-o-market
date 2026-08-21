@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
+import { computeSalesMetrics, buildLeaderboard, csvCell } from "@/lib/sales-metrics";
 import { Loader2, Download, Search, RefreshCw, Eye, ChevronDown } from "lucide-react";
 
 const STATUSES = ["all", "pending", "paid", "failed", "canceled", "refunded"];
@@ -38,6 +39,9 @@ const SuperAdminSalesPage = () => {
     queryKey: ["is-admin", user?.id],
     enabled: !!user,
     queryFn: async () => {
+      // Consulta a tabela em vez de rpc('has_role'): a plataforma pode mover a
+      // função para o schema private, e o PostgREST só expõe o public.
+      // A RLS de user_roles já garante que só dá para ler os próprios papéis.
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
@@ -99,27 +103,18 @@ const SuperAdminSalesPage = () => {
     });
   }, [data?.orders, status, search, startDate, endDate, itemsByOrder, profileMap]);
 
-  const metrics = useMemo(() => {
-    const orders = data?.orders ?? [];
-    const paid = orders.filter((o) => o.status === "paid");
-    const gross = paid.reduce((s, o) => s + o.total_cents, 0);
-    const pending = orders.filter((o) => o.status === "pending").reduce((s, o) => s + o.total_cents, 0);
-    const refunded = orders.filter((o) => o.status === "refunded").reduce((s, o) => s + o.total_cents, 0);
-    const sellers = new Set((data?.items ?? []).map((i) => i.artisan_user_id).filter(Boolean)).size;
-    return { total: orders.length, paid: paid.length, gross, pending, refunded, sellers, average: paid.length ? Math.round(gross / paid.length) : 0 };
-  }, [data]);
+  const metrics = useMemo(
+    () => computeSalesMetrics(data?.orders ?? [], data?.items ?? []),
+    [data],
+  );
 
-  const leaderboard = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const order of data?.orders ?? []) {
-      if (order.status !== "paid") continue;
-      for (const item of itemsByOrder.get(order.id) ?? []) {
-        if (!item.artisan_user_id) continue;
-        totals.set(item.artisan_user_id, (totals.get(item.artisan_user_id) ?? 0) + item.quantity * item.unit_price_cents);
-      }
-    }
-    return [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, total]) => ({ profile: profileMap.get(id), total }));
-  }, [data, itemsByOrder, profileMap]);
+  const leaderboard = useMemo(
+    () =>
+      buildLeaderboard(data?.orders ?? [], data?.items ?? [])
+        .slice(0, 10)
+        .map(([artisanId, total]) => ({ profile: profileMap.get(artisanId), total })),
+    [data, profileMap],
+  );
 
   const exportCsv = () => {
     const rows = filteredOrders.map((o) => [o.id, o.created_at, o.buyer_name, o.buyer_email, o.payment_method, o.status, o.subtotal_cents / 100, o.total_cents / 100].map((v) => `"${String(v ?? "").split('"').join('""')}"`).join(","));
