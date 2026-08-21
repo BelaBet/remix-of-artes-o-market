@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
+import SEO from "@/components/SEO";
 import { computeSalesMetrics, buildLeaderboard, csvCell } from "@/lib/sales-metrics";
 import { Loader2, Download, Search, RefreshCw, Eye, ChevronDown } from "lucide-react";
 
@@ -129,6 +130,7 @@ const SuperAdminSalesPage = () => {
 
   return (
     <main className="p-4 md:p-7 bg-background min-h-[80vh]">
+      <SEO title="Central de vendas" description="Painel de vendas." path="/admin/vendas" noindex />
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div><div className="text-[0.62rem] tracking-[0.18em] uppercase text-terra mb-2">Super Admin</div><h1 className="font-display text-2xl md:text-3xl">Central de vendas</h1><p className="text-[0.72rem] text-muted-foreground mt-1">Visão financeira, operacional e comercial de todo o marketplace.</p></div>
         <div className="flex gap-2"><button onClick={() => ordersQuery.refetch()} className="border border-border px-3 py-2 text-xs flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5" /> Atualizar</button><button onClick={exportCsv} className="bg-foreground text-background px-3 py-2 text-xs flex items-center gap-2"><Download className="w-3.5 h-3.5" /> Exportar CSV</button></div>

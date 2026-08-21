@@ -6,6 +6,7 @@ import { useRoles, type AppRole } from "@/hooks/useRoles";
 import { formatCents } from "@/lib/data";
 import { toast } from "sonner";
 import { Loader2, ShieldAlert } from "lucide-react";
+import SEO from "@/components/SEO";
 
 type Tab = "usuarios" | "pedidos" | "produtos" | "auditoria";
 
@@ -64,6 +65,7 @@ const AdminPage = () => {
 
   return (
     <div className="min-h-screen bg-parchment/40">
+      <SEO title="Administração" description="Painel administrativo." path="/admin" noindex />
       <div className="max-w-[1200px] mx-auto px-4 py-8">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-display text-[1.9rem]">Administração</h1>
