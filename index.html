@@ -14,7 +14,9 @@
 
     <title>Feito à Mão — Artesanato Brasileiro Autoral</title>
     <meta name="description" content="Descubra artesanato brasileiro autoral: peças únicas, feitas à mão, direto de quem cria. Valorize artistas e a cultura popular brasileira." />
-    <link rel="canonical" href="/" />
+    <!-- canonical e og:url sao definidos em runtime por src/components/SEO.tsx,
+         com URL absoluta. Um <link rel="canonical" href="/"> estatico faz o
+         Vite 8 tentar ler o diretorio raiz como arquivo e o build falha (EISDIR). -->
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Feito à Mão" />
