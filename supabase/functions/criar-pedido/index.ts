@@ -95,22 +95,94 @@ Deno.serve(async (req) => {
     const byId = new Map((products ?? []).map((p) => [p.id, p]))
     const lines: {
       product_id: string; artisan_user_id: string; product_name: string;
-      unit_price_cents: number; quantity: number;
+      unit_price_cents: number; quantity: number; total_cents: number;
+      commission_bps: number; platform_fee_cents: number; artisan_amount_cents: number;
     }[] = []
+
+    // Recebedores dos artesãos envolvidos. Sem recebedor ativo não há para
+    // onde mandar a parte do artesão e a cobrança falharia no gateway —
+    // melhor barrar aqui, com mensagem clara, do que cobrar e não repassar.
+    const artisanIds = [...new Set((products ?? []).map((p) => p.artisan_user_id))]
+    const { data: billing } = await admin
+      .from('artisan_billing')
+      .select('artisan_user_id, pagarme_recipient_id, commission_bps, kyc_status, can_withdraw')
+      .in('artisan_user_id', artisanIds)
+    const billingById = new Map((billing ?? []).map((b) => [b.artisan_user_id, b]))
+
+    const { data: settings } = await admin
+      .from('platform_settings').select('default_commission_bps').maybeSingle()
+    const defaultBps = settings?.default_commission_bps ?? 1200
+
     for (const item of body.items) {
       const p = byId.get(item.product_id)
       if (!p || !p.is_active) return json({ error: 'Um dos produtos não está mais disponível.' }, 400)
       if (p.stock < item.quantity) return json({ error: `Estoque insuficiente para "${p.name}".` }, 400)
+
+      const b = billingById.get(p.artisan_user_id)
+      if (!b?.pagarme_recipient_id || b.kyc_status !== 'aprovado' || !b.can_withdraw) {
+        return json({
+          error: `O artesão de "${p.name}" ainda não concluiu o cadastro de recebimento.`,
+        }, 409)
+      }
+
+      const bps = b.commission_bps ?? defaultBps
+      const totalItem = p.price_cents * item.quantity
+      // Trunca a comissão: o centavo de arredondamento fica com o artesão,
+      // nunca com a plataforma, e o split sempre fecha com o total.
+      const fee = Math.floor((totalItem * bps) / 10000)
       lines.push({
         product_id: p.id,
         artisan_user_id: p.artisan_user_id,
         product_name: p.name,
         unit_price_cents: p.price_cents,
         quantity: item.quantity,
+        total_cents: totalItem,
+        commission_bps: bps,
+        platform_fee_cents: fee,
+        artisan_amount_cents: totalItem - fee,
       })
     }
-    const subtotal = lines.reduce((s, l) => s + l.unit_price_cents * l.quantity, 0)
+    const subtotal = lines.reduce((s, l) => s + l.total_cents, 0)
     const total = subtotal
+
+    // Split agregado por recebedor: o Pagar.me aceita uma regra por
+    // destinatário, então somamos o que cada artesão tem no pedido.
+    const porRecebedor = new Map<string, number>()
+    for (const l of lines) {
+      const rid = billingById.get(l.artisan_user_id)!.pagarme_recipient_id as string
+      porRecebedor.set(rid, (porRecebedor.get(rid) ?? 0) + l.artisan_amount_cents)
+    }
+    const totalArtesaos = [...porRecebedor.values()].reduce((s, v) => s + v, 0)
+    const partePlataforma = total - totalArtesaos
+
+    const platformRecipientId = Deno.env.get('PAGARME_PLATFORM_RECIPIENT_ID')
+    if (!platformRecipientId) {
+      console.error('PAGARME_PLATFORM_RECIPIENT_ID ausente')
+      return json({ error: 'Pagamentos indisponíveis no momento.' }, 503)
+    }
+
+    const split = [
+      {
+        // A plataforma responde pelas taxas do gateway e por chargeback.
+        amount: partePlataforma,
+        recipient_id: platformRecipientId,
+        type: 'flat',
+        options: { liable: true, charge_processing_fee: true, charge_remainder_fee: true },
+      },
+      ...[...porRecebedor.entries()].map(([rid, amount]) => ({
+        amount,
+        recipient_id: rid,
+        type: 'flat',
+        options: { liable: false, charge_processing_fee: false, charge_remainder_fee: false },
+      })),
+    ]
+
+    // Conferência final: o split precisa somar exatamente o total cobrado.
+    const somaSplit = split.reduce((s, r) => s + r.amount, 0)
+    if (somaSplit !== total) {
+      console.error('Split nao fecha', { somaSplit, total })
+      return json({ error: 'Erro no cálculo do pedido. Tente novamente.' }, 500)
+    }
 
     const { data: order, error: orderErr } = await admin
       .from('orders')
@@ -188,7 +260,9 @@ Deno.serve(async (req) => {
         quantity: l.quantity,
         code: l.product_id,
       })),
-      payments,
+      // O split vai em cada pagamento: é ele que manda o gateway dividir o
+      // dinheiro na liquidação, em vez de tudo cair na conta da plataforma.
+      payments: payments.map((pg) => ({ ...pg, split })),
       ...(body.shipping_address
         ? {
             shipping: {

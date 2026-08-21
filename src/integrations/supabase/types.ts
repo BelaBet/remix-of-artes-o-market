@@ -47,6 +47,87 @@ export type Database = {
         }
         Relationships: []
       }
+      artisan_billing: {
+        Row: {
+          account_check_digit: string | null
+          account_number: string | null
+          account_type: string | null
+          artisan_user_id: string
+          bank_code: string | null
+          branch_number: string | null
+          can_withdraw: boolean
+          commission_bps: number | null
+          created_at: string
+          holder_document: string | null
+          holder_name: string | null
+          kyc_status: string
+          kyc_url: string | null
+          kyc_url_expires_at: string | null
+          pagarme_recipient_id: string | null
+          recipient_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          artisan_user_id: string
+          account_check_digit?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          bank_code?: string | null
+          branch_number?: string | null
+          can_withdraw?: boolean
+          commission_bps?: number | null
+          created_at?: string
+          holder_document?: string | null
+          holder_name?: string | null
+          kyc_status?: string
+          kyc_url?: string | null
+          kyc_url_expires_at?: string | null
+          pagarme_recipient_id?: string | null
+          recipient_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          artisan_user_id?: string
+          account_check_digit?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          bank_code?: string | null
+          branch_number?: string | null
+          can_withdraw?: boolean
+          commission_bps?: number | null
+          created_at?: string
+          holder_document?: string | null
+          holder_name?: string | null
+          kyc_status?: string
+          kyc_url?: string | null
+          kyc_url_expires_at?: string | null
+          pagarme_recipient_id?: string | null
+          recipient_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          default_commission_bps: number
+          id: boolean
+          support_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          default_commission_bps?: number
+          id?: boolean
+          support_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          default_commission_bps?: number
+          id?: boolean
+          support_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -82,6 +163,10 @@ export type Database = {
           created_at: string
           id: string
           order_id: string
+          total_cents: number
+          platform_fee_cents: number
+          commission_bps: number
+          artisan_amount_cents: number
           product_id: string | null
           product_name: string
           quantity: number
@@ -102,6 +187,10 @@ export type Database = {
           created_at?: string
           id?: string
           order_id?: string
+          total_cents?: number
+          platform_fee_cents?: number
+          commission_bps?: number
+          artisan_amount_cents?: number
           product_id?: string | null
           product_name?: string
           quantity?: number
@@ -342,6 +431,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      artesao_pode_vender: {
+        Args: { _artisan_user_id: string }
+        Returns: boolean
+      }
+      comissao_bps: {
+        Args: { _artisan_user_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

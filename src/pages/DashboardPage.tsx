@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
 import ProductsTab from "@/pages/dashboard/ProductsTab";
 import OrdersTab, { useArtisanOrders, StatusBadge } from "@/pages/dashboard/OrdersTab";
+import RecebimentoTab from "@/pages/dashboard/RecebimentoTab";
 import SuperAdminSalesPage from "@/pages/SuperAdminSalesPage";
 import { Download, Loader2 } from "lucide-react";
 
@@ -53,6 +54,7 @@ const DashboardPage = () => {
     { key: "products", icon: "◈", label: "Produtos" },
     { key: "orders", icon: "⬡", label: "Pedidos" },
     { key: "finance", icon: "◎", label: "Extrato / Financeiro" },
+    { key: "recebimento", icon: "◉", label: "Recebimento" },
     { key: "reviews", icon: "◇", label: "Avaliações" },
     { key: "settings", icon: "⊙", label: "Configurações" },
     ...(isAdmin ? [{ key: "admin-sales", icon: "▣", label: "Super Admin · Vendas" }] : []),
@@ -97,6 +99,7 @@ const DashboardPage = () => {
 
         {tab === "reviews" && <div><h2 className="font-display text-xl mb-4">Avaliações</h2>{!reviews?.length ? <div className="border border-dashed border-border py-14 text-center text-xs text-muted-foreground">Você ainda não recebeu avaliações.</div> : <div className="grid md:grid-cols-2 gap-3">{reviews.map((r) => <div key={r.id} className="border border-border p-4"><div className="flex justify-between"><span className="text-xs font-medium">{r.reviewer_name}</span><span className="text-gold">{"★".repeat(r.rating)}</span></div><div className="text-[0.62rem] text-muted-foreground mt-1">{r.reviewer_city}</div><p className="text-xs text-muted-foreground mt-2">{r.comment}</p></div>)}</div>}</div>}
 
+        {tab === "recebimento" && <RecebimentoTab />}
         {tab === "settings" && <div><h2 className="font-display text-xl mb-4">Configurações</h2><div className="border border-border p-5 text-xs space-y-2"><div><span className="text-muted-foreground">E-mail: </span>{user?.email}</div><div><span className="text-muted-foreground">Nome: </span>{displayName}</div></div></div>}
       </main>
     </div>
