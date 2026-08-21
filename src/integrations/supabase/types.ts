@@ -349,6 +349,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      promote_to_admin: { Args: { _email: string }; Returns: string }
     }
     Enums: {
       app_role: "buyer" | "artisan" | "admin"
@@ -478,6 +479,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["buyer", "artisan", "admin"],
+    },
   },
 } as const
