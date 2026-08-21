@@ -1,6 +1,22 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+/**
+ * Webhook do Pagar.me.
+ *
+ * A Pagar.me NÃO assina os webhooks: não existe cabeçalho de assinatura na
+ * documentação da v5. A proteção oferecida é (a) Basic Auth embutido na URL
+ * cadastrada no painel e (b) lista de IPs. Uma versão anterior desta função
+ * exigia HMAC-SHA256 e respondia 401 a tudo — todo PIX e boleto ficaria
+ * eternamente "pendente".
+ *
+ * Como Basic Auth sozinho é um segredo compartilhado que trafega na URL, a
+ * defesa principal aqui é outra: NÃO confiamos no corpo recebido. Ao receber
+ * um evento, reconsultamos o pedido direto na API do Pagar.me com a chave
+ * secreta e usamos o status que ELA responde. Assim, mesmo que alguém
+ * descubra a URL e forje um "order.paid", nada é marcado como pago.
+ */
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   let diff = 0
@@ -8,47 +24,82 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
-async function hmacHex(secret: string, payload: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+const STATUS_MAP: Record<string, string> = {
+  paid: 'paid',
+  pending: 'pending',
+  processing: 'pending',
+  waiting_payment: 'pending',
+  failed: 'failed',
+  not_authorized: 'failed',
+  canceled: 'canceled',
+  voided: 'canceled',
+  refunded: 'refunded',
+  partial_refunded: 'refunded',
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  }
 
   try {
-    const webhookSecret = Deno.env.get('PAGARME_WEBHOOK_SECRET')
-    if (!webhookSecret) {
-      console.error('Webhook secret não configurado')
+    const secretKey = Deno.env.get('PAGARME_SECRET_KEY')
+    if (!secretKey) {
+      console.error('PAGARME_SECRET_KEY ausente')
       return new Response('Not configured', { status: 503, headers: corsHeaders })
     }
 
-    const rawBody = await req.text()
-    const headerSig =
-      req.headers.get('x-hub-signature') ??
-      req.headers.get('X-Hub-Signature') ??
-      req.headers.get('x-pagarme-signature') ??
-      ''
-    const received = headerSig.includes('=') ? headerSig.split('=').pop()!.trim() : headerSig.trim()
-    const expected = await hmacHex(webhookSecret, rawBody)
-    if (!received || !timingSafeEqual(received.toLowerCase(), expected)) {
-      return new Response('Invalid signature', { status: 401, headers: corsHeaders })
+    // Basic Auth opcional: só é exigido se o segredo estiver configurado.
+    // Cadastre a URL no painel como https://usuario:senha@.../pagarme-webhook
+    // e guarde "usuario:senha" em PAGARME_WEBHOOK_SECRET.
+    const expectedBasic = Deno.env.get('PAGARME_WEBHOOK_SECRET')
+    if (expectedBasic) {
+      const header = req.headers.get('authorization') ?? ''
+      const enviado = header.toLowerCase().startsWith('basic ')
+        ? atob(header.slice(6).trim())
+        : ''
+      if (!enviado || !timingSafeEqual(enviado, expectedBasic)) {
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+      }
     }
 
-    const event = JSON.parse(rawBody)
-    const type: string = event?.type ?? ''
-    const data = event?.data ?? {}
+    const evento = await req.json().catch(() => null)
+    const tipo: string = evento?.type ?? ''
+    const dados = evento?.data ?? {}
+
+    // Eventos order.* trazem o pedido em data; charge.* trazem data.order.
     const pagarmeOrderId: string | null =
-      data?.order?.id ?? (String(data?.id ?? '').startsWith('or_') ? data.id : null)
-    const orderCode: string | null = data?.code ?? data?.order?.code ?? null
+      (typeof dados?.id === 'string' && dados.id.startsWith('or_') ? dados.id : null) ??
+      (typeof dados?.order?.id === 'string' ? dados.order.id : null)
+
+    if (!pagarmeOrderId) {
+      // Evento que não diz respeito a pedido (cliente, cartão, plano...).
+      return new Response('ok', { status: 200, headers: corsHeaders })
+    }
+
+    // ---- fonte da verdade: a própria API do Pagar.me ----
+    let statusReal: string | null = null
+    try {
+      const res = await fetch(`https://api.pagar.me/core/v5/orders/${pagarmeOrderId}`, {
+        headers: { Authorization: `Basic ${btoa(`${secretKey}:`)}` },
+      })
+      if (!res.ok) {
+        console.error('Falha ao confirmar pedido no gateway', { pagarmeOrderId, status: res.status })
+        // 5xx faz o Pagar.me reenviar depois; não marcamos nada com dúvida.
+        return new Response('retry', { status: 503, headers: corsHeaders })
+      }
+      const pedido = await res.json()
+      statusReal = pedido?.status ?? pedido?.charges?.[0]?.status ?? null
+    } catch (_e) {
+      return new Response('retry', { status: 503, headers: corsHeaders })
+    }
+
+    const novoStatus = statusReal ? STATUS_MAP[statusReal] : null
+    if (!novoStatus) {
+      console.error('Status desconhecido vindo do gateway', { statusReal, tipo })
+      return new Response('ok', { status: 200, headers: corsHeaders })
+    }
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -56,43 +107,34 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     )
 
-    let query = admin.from('orders').select('id, status').limit(1)
-    query = pagarmeOrderId
-      ? query.eq('pagarme_order_id', pagarmeOrderId)
-      : query.eq('id', orderCode ?? '00000000-0000-0000-0000-000000000000')
-    const { data: rows } = await query
-    const order = rows?.[0]
-    if (!order) return new Response('ok', { status: 200, headers: corsHeaders })
+    const { data: rows } = await admin
+      .from('orders')
+      .select('id, status')
+      .eq('pagarme_order_id', pagarmeOrderId)
+      .limit(1)
+    const pedidoLocal = rows?.[0]
+    if (!pedidoLocal) return new Response('ok', { status: 200, headers: corsHeaders })
 
-    const statusMap: Record<string, string> = {
-      'order.paid': 'paid',
-      'charge.paid': 'paid',
-      'order.payment_failed': 'failed',
-      'charge.payment_failed': 'failed',
-      'order.canceled': 'canceled',
-      'charge.refunded': 'refunded',
+    // Idempotência: o Pagar.me reenvia webhooks e pode entregar fora de ordem.
+    if (pedidoLocal.status === novoStatus) {
+      return new Response('ok', { status: 200, headers: corsHeaders })
     }
-    const newStatus = statusMap[type]
-    if (!newStatus) return new Response('ok', { status: 200, headers: corsHeaders })
-
-    // idempotência
-    if (order.status === newStatus) return new Response('ok', { status: 200, headers: corsHeaders })
-    if (order.status === 'paid' && newStatus !== 'refunded') {
+    // Pago só sai de 'paid' para estorno — nunca volta para pendente.
+    if (pedidoLocal.status === 'paid' && novoStatus !== 'refunded') {
       return new Response('ok', { status: 200, headers: corsHeaders })
     }
 
-    const update: Record<string, unknown> = { status: newStatus }
-    if (newStatus === 'paid') update.paid_at = new Date().toISOString()
-    await admin.from('orders').update(update).eq('id', order.id)
+    const patch: Record<string, unknown> = { status: novoStatus }
+    if (novoStatus === 'paid') patch.paid_at = new Date().toISOString()
+    await admin.from('orders').update(patch).eq('id', pedidoLocal.id)
 
-    if (newStatus === 'paid') {
-      const { data: items } = await admin
+    // Estoque só baixa na transição para pago, uma única vez.
+    if (novoStatus === 'paid') {
+      const { data: itens } = await admin
         .from('order_items')
         .select('product_id, quantity')
-        .eq('order_id', order.id)
-      // Decremento atômico (ver decrement_stock): evita venda dupla quando
-      // dois webhooks ou duas compras chegam ao mesmo tempo.
-      for (const it of items ?? []) {
+        .eq('order_id', pedidoLocal.id)
+      for (const it of itens ?? []) {
         if (!it.product_id) continue
         await admin.rpc('decrement_stock', { _product_id: it.product_id, _qty: it.quantity })
       }
@@ -101,6 +143,7 @@ Deno.serve(async (req) => {
     return new Response('ok', { status: 200, headers: corsHeaders })
   } catch (e) {
     console.error('Erro no webhook', e instanceof Error ? e.message : 'unknown')
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    // 5xx para o Pagar.me reenviar em vez de dar o evento por entregue.
+    return new Response('error', { status: 500, headers: corsHeaders })
   }
 })
