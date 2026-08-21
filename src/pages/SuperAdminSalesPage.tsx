@@ -38,7 +38,12 @@ const SuperAdminSalesPage = () => {
     queryKey: ["is-admin", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("has_role", { _role: "admin", _user_id: user!.id });
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id)
+        .eq("role", "admin")
+        .maybeSingle();
       if (error) throw error;
       return !!data;
     },

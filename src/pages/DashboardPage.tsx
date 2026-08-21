@@ -30,7 +30,7 @@ const DashboardPage = () => {
   });
   const { data: isAdmin } = useQuery({
     queryKey: ["is-admin", user?.id], enabled: !!user,
-    queryFn: async () => { const { data, error } = await supabase.rpc("has_role", { _role: "admin", _user_id: user!.id }); if (error) throw error; return !!data; },
+    queryFn: async () => { const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).eq("role", "admin").maybeSingle(); if (error) throw error; return !!data; },
   });
 
   const displayName = (user?.user_metadata?.display_name as string | undefined)?.trim() || user?.email?.split("@")[0] || "artesão";
