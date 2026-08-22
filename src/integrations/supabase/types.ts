@@ -534,17 +534,6 @@ export type Database = {
         Args: { _product_id: string; _qty: number }
         Returns: number
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_order_seller: {
-        Args: { _order_id: string; _user_id: string }
-        Returns: boolean
-      }
       promote_to_admin: { Args: { _email: string }; Returns: string }
       regiao_da_uf: { Args: { _uf: string }; Returns: string }
     }
