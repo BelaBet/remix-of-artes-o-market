@@ -36,8 +36,11 @@ const MarketFooter = () => (
         ))}
       </div>
       <div className="border-t border-parchment/5 pt-5 flex flex-col sm:flex-row sm:justify-between gap-2 text-[0.64rem] sm:text-[0.66rem] text-parchment/15 tracking-[0.04em]">
-        <span>© 2025 Feito à Mão — Todos os direitos reservados</span>
-        <span>Feito com cuidado no Brasil</span>
+        <span>© 2026 Feito à Mão — Todos os direitos reservados</span>
+        <span className="flex gap-4">
+          <a href="/termos" className="hover:text-gold-light transition-colors">Termos de uso</a>
+          <a href="/privacidade" className="hover:text-gold-light transition-colors">Privacidade</a>
+        </span>
       </div>
     </div>
   </footer>

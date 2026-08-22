@@ -143,7 +143,19 @@ Deno.serve(async (req) => {
       })
     }
     const subtotal = lines.reduce((s, l) => s + l.total_cents, 0)
-    const total = subtotal
+
+    // Frete calculado no servidor pela UF de entrega. O cliente nunca envia
+    // valor de frete: seria o mesmo furo de deixar ele mandar o preço.
+    let frete = 0
+    const uf = String(body.shipping_address?.state ?? '').toUpperCase()
+    if (uf) {
+      const { data: f } = await admin.rpc('calcular_frete', {
+        _uf: uf, _subtotal_cents: subtotal,
+      })
+      if (typeof f === 'number') frete = f
+      else return json({ error: 'Não entregamos nesse estado no momento.' }, 400)
+    }
+    const total = subtotal + frete
 
     // Split agregado por recebedor: o Pagar.me aceita uma regra por
     // destinatário, então somamos o que cada artesão tem no pedido.
@@ -194,6 +206,7 @@ Deno.serve(async (req) => {
         buyer_phone: body.buyer.phone ?? null,
         shipping_address: body.shipping_address ?? null,
         subtotal_cents: subtotal,
+        shipping_cents: frete,
         total_cents: total,
         payment_method: body.payment_method,
         status: 'pending',
@@ -338,6 +351,34 @@ Deno.serve(async (req) => {
 
     if (update.status === 'failed') {
       return json({ error: 'Pagamento não autorizado. Tente outro cartão ou método.' }, 402)
+    }
+
+    // E-mail é efeito colateral: se falhar, o pedido continua válido.
+    try {
+      const base = Deno.env.get('SUPABASE_URL')
+      await fetch(`${base}/functions/v1/enviar-email`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          template: update.status === 'paid' ? 'pagamento_aprovado' : 'pedido_criado',
+        }),
+      })
+      if (update.status === 'paid') {
+        await fetch(`${base}/functions/v1/enviar-email`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ order_id: order.id, template: 'venda_recebida' }),
+        })
+      }
+    } catch (e) {
+      console.error('Falha ao disparar e-mail', e instanceof Error ? e.message : 'unknown')
     }
 
     return json({

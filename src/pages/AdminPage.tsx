@@ -13,6 +13,9 @@ type Tab = "usuarios" | "pedidos" | "produtos" | "auditoria";
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
   paid: "Pago",
+  processing: "Em preparo",
+  shipped: "Enviado",
+  delivered: "Entregue",
   failed: "Falhou",
   canceled: "Cancelado",
   refunded: "Estornado",
@@ -254,6 +257,31 @@ function OrdersTab() {
     void load();
   }, []);
 
+  const estornar = async (id: string) => {
+    const motivo = window.prompt("Motivo do estorno (fica registrado na auditoria):");
+    if (!motivo || motivo.trim().length < 5) {
+      if (motivo !== null) toast.error("Descreva o motivo com pelo menos 5 caracteres.");
+      return;
+    }
+    // Com split, o dinheiro já foi repassado: o gateway estorna de cada
+    // recebedor e a plataforma cobre saldo negativo do artesão.
+    if (!window.confirm("Isso devolve o valor ao comprador e não pode ser desfeito. Confirmar?")) return;
+    const { error } = await supabase.functions.invoke("estornar-pedido", {
+      body: { order_id: id, reason: motivo.trim() },
+    });
+    if (error) {
+      let m: string | null = null;
+      const ctx = (error as { context?: Response }).context;
+      if (ctx?.json) {
+        try { const c = await ctx.json(); if (typeof c?.error === "string") m = c.error; } catch { /* não-JSON */ }
+      }
+      toast.error(m ?? "Não foi possível estornar.");
+      return;
+    }
+    toast.success("Estorno solicitado ao gateway.");
+    void load();
+  };
+
   const changeStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) {
@@ -297,6 +325,14 @@ function OrdersTab() {
                 <Td className="uppercase text-[0.66rem] tracking-[0.1em]">{o.payment_method}</Td>
                 <Td>{formatCents(o.total_cents)}</Td>
                 <Td>
+                  {["paid", "shipped", "delivered"].includes(o.status) && (
+                    <button
+                      onClick={() => estornar(o.id)}
+                      className="block mb-1.5 text-[0.58rem] tracking-[0.1em] uppercase border border-destructive text-destructive px-2 py-0.5 hover:bg-destructive hover:text-background transition-colors"
+                    >
+                      Estornar
+                    </button>
+                  )}
                   <select
                     value={o.status}
                     onChange={(e) => changeStatus(o.id, e.target.value)}

@@ -168,6 +168,28 @@ Deno.serve(async (req) => {
     if (novoStatus === 'paid') patch.paid_at = new Date().toISOString()
     await admin.from('orders').update(patch).eq('id', pedidoLocal.id)
 
+    // E-mails da mudança de status (idempotentes pelo email_log).
+    try {
+      const base = Deno.env.get('SUPABASE_URL')
+      const disparar = (template: string) =>
+        fetch(`${base}/functions/v1/enviar-email`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ order_id: pedidoLocal.id, template }),
+        })
+      if (novoStatus === 'paid') {
+        await disparar('pagamento_aprovado')
+        await disparar('venda_recebida')
+      } else if (novoStatus === 'failed') {
+        await disparar('pagamento_falhou')
+      }
+    } catch (e) {
+      console.error('Falha ao disparar e-mail', e instanceof Error ? e.message : 'unknown')
+    }
+
     // Estoque só baixa na transição para pago, uma única vez.
     if (novoStatus === 'paid') {
       const { data: itens } = await admin

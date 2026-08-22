@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Truck } from "lucide-react";
+import { toast } from "sonner";
 
 export interface ArtisanOrder {
   id: string;
@@ -20,6 +22,90 @@ const STATUS_STYLE: Record<string, { label: string; className: string }> = {
   failed: { label: "Falhou", className: "bg-destructive/10 text-destructive" },
   canceled: { label: "Cancelado", className: "bg-muted text-muted-foreground" },
   refunded: { label: "Reembolsado", className: "bg-muted text-muted-foreground" },
+  processing: { label: "Em preparo", className: "bg-terra/10 text-terra" },
+  shipped: { label: "Enviado", className: "bg-terra/10 text-terra" },
+  delivered: { label: "Entregue", className: "bg-sage/10 text-sage" },
+};
+
+/**
+ * Controles de logística do artesão.
+ *
+ * A RLS e o trigger no banco só permitem 'processing', 'shipped' e
+ * 'delivered' — o artesão não consegue declarar pagamento nem mexer em
+ * valor, mesmo chamando a API direto.
+ */
+export const EnvioControls = ({
+  order,
+  onChanged,
+}: {
+  order: { id: string; status: string };
+  onChanged: () => void;
+}) => {
+  const [codigo, setCodigo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  if (!["paid", "processing", "shipped"].includes(order.status)) return null;
+
+  const atualizar = async (status: string) => {
+    setSalvando(true);
+    const patch: { status: string; tracking_code?: string } = { status };
+    if (status === "shipped" && codigo.trim()) patch.tracking_code = codigo.trim();
+    const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
+    setSalvando(false);
+    if (error) {
+      toast.error("Não foi possível atualizar o pedido.");
+      return;
+    }
+    if (status === "shipped") {
+      // Avisa o comprador. Falha de e-mail não desfaz o envio.
+      void supabase.functions.invoke("enviar-email", {
+        body: { order_id: order.id, template: "pedido_enviado" },
+      });
+    }
+    toast.success(status === "shipped" ? "Comprador avisado do envio!" : "Pedido atualizado.");
+    onChanged();
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-2">
+      {order.status === "paid" && (
+        <button
+          onClick={() => atualizar("processing")}
+          disabled={salvando}
+          className="border border-border px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:border-foreground transition-colors disabled:opacity-50"
+        >
+          Marcar em preparo
+        </button>
+      )}
+      {(order.status === "paid" || order.status === "processing") && (
+        <>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+            placeholder="Código de rastreio"
+            className="border border-border bg-background px-2 py-1.5 text-[0.7rem] outline-none focus:border-terra w-[170px]"
+          />
+          <button
+            onClick={() => atualizar("shipped")}
+            disabled={salvando}
+            className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
+            Marcar enviado
+          </button>
+        </>
+      )}
+      {order.status === "shipped" && (
+        <button
+          onClick={() => atualizar("delivered")}
+          disabled={salvando}
+          className="border border-sage text-sage px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:bg-sage hover:text-background transition-colors disabled:opacity-50"
+        >
+          Confirmar entrega
+        </button>
+      )}
+    </div>
+  );
 };
 
 export function useArtisanOrders() {
@@ -71,7 +157,7 @@ export const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const OrdersTab = () => {
-  const { data: orders, isLoading } = useArtisanOrders();
+  const { data: orders, isLoading, refetch } = useArtisanOrders();
 
   if (isLoading) {
     return (
@@ -103,6 +189,7 @@ const OrdersTab = () => {
                 {o.items.map((i) => `${i.quantity}× ${i.product_name}`).join(", ")}
               </div>
               <div className="font-display text-[1rem]">{formatCents(o.artisanTotalCents)}</div>
+              <EnvioControls order={o} onChanged={() => void refetch()} />
             </div>
           ))}
         </div>

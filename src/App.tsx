@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import OAuthConsent from "./pages/OAuthConsent";
 import AdminPage from "./pages/AdminPage";
+import { TermosPage, PrivacidadePage } from "./pages/LegalPages";
 import SuperAdminSalesPage from "./pages/SuperAdminSalesPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailsPage from "./pages/OrderDetailsPage";
@@ -32,6 +33,8 @@ const App = () => (
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/pedido/:id" element={<OrderDetailsPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/termos" element={<TermosPage />} />
+              <Route path="/privacidade" element={<PrivacidadePage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/vendas" element={<SuperAdminSalesPage />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
