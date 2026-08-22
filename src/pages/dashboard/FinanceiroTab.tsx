@@ -1,56 +1,269 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { csvCell } from "@/lib/sales-metrics";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
-import { Download, Loader2 } from "lucide-react";
+import { csvCell } from "@/lib/sales-metrics";
+import { Download, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * Tipos do extrato financeiro. O `db` faz cast porque estas tabelas ainda
- * não estão nos tipos gerados do Supabase; tipar as linhas aqui evita que
- * o `any` se espalhe pelo componente inteiro.
+ * Extrato financeiro do artesão.
+ *
+ * A versão anterior consultava as tabelas artisan_wallets,
+ * financial_transactions e payout_requests — que NÃO existem no banco. A aba
+ * quebrava ao abrir.
+ *
+ * Também não faz sentido ter carteira nem pedido de saque neste modelo: com
+ * split, a parte do artesão é liquidada direto pelo gateway na conta dele.
+ * Não há saldo em custódia para sacar. O extrato correto é o histórico das
+ * vendas, derivado de order_items + orders — que é o que esta versão mostra.
  */
-interface Transacao {
-  id?: string;
-  created_at: string;
-  type: string;
-  description: string | null;
-  direction?: string;
-  gross_cents: number;
-  fee_cents: number;
-  commission_cents: number;
-  net_cents: number;
+
+interface Linha {
+  order_id: string;
+  data: string;
   status: string;
-}
-interface Repasse {
-  id?: string;
-  created_at?: string;
-  requested_at?: string;
-  amount_cents: number;
-  status: string;
-  pix_key?: string | null;
-  note?: string | null;
+  produto: string;
+  quantidade: number;
+  bruto: number;
+  comissao: number;
+  liquido: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-const FinanceiroTab = () => {
-  const { user } = useAuth(); const qc = useQueryClient(); const [range, setRange] = useState("30"); const [payoutAmount, setPayoutAmount] = useState(""); const [pixKey, setPixKey] = useState("");
-  const { data: wallet, isLoading: loadingWallet } = useQuery({ queryKey: ["artisan-wallet", user?.id], enabled: !!user, queryFn: async () => { const { data, error } = await db.from("artisan_wallets").select("*").eq("artisan_user_id", user!.id).maybeSingle(); if (error) throw error; return data; } });
-  const { data: transactions } = useQuery({ queryKey: ["financial-transactions", user?.id, range], enabled: !!user, queryFn: async () => { const since = new Date(Date.now() - Number(range) * 86400000).toISOString(); const { data, error } = await db.from("financial_transactions").select("*").eq("artisan_user_id", user!.id).gte("created_at", since).order("created_at", { ascending: false }); if (error) throw error; return data ?? []; } });
-  const { data: payouts } = useQuery({ queryKey: ["payout-requests", user?.id], enabled: !!user, queryFn: async () => { const { data, error } = await db.from("payout_requests").select("*").eq("artisan_user_id", user!.id).order("requested_at", { ascending: false }); if (error) throw error; return data ?? []; } });
-  const periodNet = useMemo(() => (transactions ?? []).reduce((sum: number, t: Transacao) => sum + Number(t.net_cents || 0) * (t.direction === "debit" ? -1 : 1), 0), [transactions]);
-  const requestPayout = useMutation({ mutationFn: async () => { const cents = Math.round(Number(payoutAmount.replace(",", ".")) * 100); if (!cents || cents <= 0) throw new Error("Informe um valor válido."); if (cents > Number(wallet?.available_cents ?? 0)) throw new Error("O valor excede seu saldo disponível."); if (!pixKey.trim()) throw new Error("Informe sua chave Pix."); const { error } = await db.from("payout_requests").insert({ artisan_user_id: user!.id, amount_cents: cents, pix_key: pixKey.trim() }); if (error) throw error; }, onSuccess: () => { toast.success("Solicitação de repasse enviada."); setPayoutAmount(""); setPixKey(""); qc.invalidateQueries({ queryKey: ["payout-requests"] }); }, onError: (e: Error) => toast.error(e.message) });
-  const exportCsv = () => { const rows = (transactions ?? []).map((t: Transacao) => [t.created_at, t.type, t.description ?? "", t.gross_cents / 100, t.fee_cents / 100, t.commission_cents / 100, t.net_cents / 100, t.status].map(v => csvCell(v)).join(",")); const csv = ["data,tipo,descricao,bruto,taxas,comissao,liquido,status", ...rows].join("\n"); const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "extrato-financeiro.csv"; a.click(); URL.revokeObjectURL(url); };
-  if (loadingWallet) return <div className="flex justify-center py-16"><Loader2 className="animate-spin" /></div>;
-  return <div>
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5"><div><h2 className="font-display text-xl">Financeiro</h2><p className="text-xs text-muted-foreground mt-1">Saldo, vendas, taxas e repasses da sua loja.</p></div><div className="flex gap-2"><select value={range} onChange={e => setRange(e.target.value)} className="border border-border bg-background px-2 py-2 text-xs"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="365">1 ano</option></select><button onClick={exportCsv} className="border border-border px-3 py-2 text-xs flex items-center gap-2"><Download className="w-3.5 h-3.5" /> Exportar</button></div></div>
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5"><div className="border border-border p-4"><div className="font-display text-xl">{formatCents(Number(wallet?.available_cents ?? 0))}</div><div className="text-[0.58rem] uppercase tracking-wider text-muted-foreground">Disponível</div></div><div className="border border-border p-4"><div className="font-display text-xl">{formatCents(Number(wallet?.pending_cents ?? 0))}</div><div className="text-[0.58rem] uppercase tracking-wider text-muted-foreground">Pendente</div></div><div className="border border-border p-4"><div className="font-display text-xl">{formatCents(Number(wallet?.lifetime_sales_cents ?? 0))}</div><div className="text-[0.58rem] uppercase tracking-wider text-muted-foreground">Total vendido</div></div><div className="border border-border p-4"><div className="font-display text-xl">{formatCents(Number(wallet?.lifetime_payouts_cents ?? 0))}</div><div className="text-[0.58rem] uppercase tracking-wider text-muted-foreground">Total repassado</div></div></div>
-    <div className="grid lg:grid-cols-[1.4fr_0.8fr] gap-4 mb-5"><div className="border border-border p-4"><div className="flex justify-between items-center mb-3"><h3 className="font-display">Solicitar repasse</h3><span className="text-xs text-muted-foreground">Saldo: {formatCents(Number(wallet?.available_cents ?? 0))}</span></div><div className="grid sm:grid-cols-2 gap-2"><input inputMode="decimal" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)} placeholder="Valor em R$" className="border border-border bg-background px-3 py-2 text-xs"/><input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Chave Pix" className="border border-border bg-background px-3 py-2 text-xs"/></div><button disabled={requestPayout.isPending} onClick={() => requestPayout.mutate()} className="mt-2 bg-foreground text-background px-4 py-2 text-[0.62rem] uppercase tracking-wider disabled:opacity-50">{requestPayout.isPending ? "Enviando…" : "Solicitar repasse"}</button></div><div className="border border-border p-4"><h3 className="font-display mb-2">Período</h3><div className="font-display text-2xl">{formatCents(periodNet)}</div><div className="text-[0.6rem] uppercase tracking-wider text-muted-foreground">Movimentação líquida</div></div></div>
-    <div className="border border-border overflow-x-auto mb-5"><div className="p-3 border-b border-border font-display">Extrato</div><table className="w-full text-xs"><thead><tr className="border-b border-border text-muted-foreground"><th className="p-3 text-left">Data</th><th className="p-3 text-left">Tipo</th><th className="p-3 text-left">Descrição</th><th className="p-3 text-right">Bruto</th><th className="p-3 text-right">Taxas</th><th className="p-3 text-right">Comissão</th><th className="p-3 text-right">Líquido</th><th className="p-3">Status</th></tr></thead><tbody>{(transactions ?? []).map((t: Transacao) => <tr key={t.id} className="border-b border-border last:border-0"><td className="p-3">{new Date(t.created_at).toLocaleDateString("pt-BR")}</td><td className="p-3 uppercase">{t.type}</td><td className="p-3">{t.description ?? "—"}</td><td className="p-3 text-right">{formatCents(Number(t.gross_cents))}</td><td className="p-3 text-right">{formatCents(Number(t.fee_cents))}</td><td className="p-3 text-right">{formatCents(Number(t.commission_cents))}</td><td className="p-3 text-right font-medium">{formatCents(Number(t.net_cents))}</td><td className="p-3">{t.status}</td></tr>)}</tbody></table>{!transactions?.length && <div className="py-10 text-center text-xs text-muted-foreground">Nenhuma movimentação no período.</div>}</div>
-    <div className="border border-border overflow-x-auto"><div className="p-3 border-b border-border font-display">Solicitações de repasse</div><table className="w-full text-xs"><thead><tr className="border-b border-border text-muted-foreground"><th className="p-3 text-left">Data</th><th className="p-3 text-right">Valor</th><th className="p-3">Status</th><th className="p-3 text-left">Pix</th></tr></thead><tbody>{(payouts ?? []).map((p: Repasse) => <tr key={p.id} className="border-b border-border last:border-0"><td className="p-3">{new Date(p.requested_at).toLocaleDateString("pt-BR")}</td><td className="p-3 text-right font-medium">{formatCents(Number(p.amount_cents))}</td><td className="p-3 uppercase">{p.status}</td><td className="p-3">{p.pix_key}</td></tr>)}</tbody></table>{!payouts?.length && <div className="py-8 text-center text-xs text-muted-foreground">Nenhum repasse solicitado.</div>}</div>
-  </div>;
+const LIQUIDADO = ["paid", "processing", "shipped", "delivered"];
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Aguardando pagamento",
+  paid: "Pago",
+  processing: "Em preparo",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  failed: "Falhou",
+  canceled: "Cancelado",
+  refunded: "Estornado",
 };
+
+function useExtrato() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["extrato-artesao", user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<Linha[]> => {
+      const { data, error } = await supabase
+        .from("order_items")
+        .select(
+          "order_id, product_name, quantity, total_cents, platform_fee_cents, artisan_amount_cents, created_at, orders(status, created_at)",
+        )
+        .eq("artisan_user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      return (data ?? []).map((i) => {
+        const o = i.orders as unknown as { status: string; created_at: string } | null;
+        return {
+          order_id: i.order_id as string,
+          data: o?.created_at ?? (i.created_at as string),
+          status: o?.status ?? "pending",
+          produto: i.product_name as string,
+          quantidade: i.quantity as number,
+          bruto: i.total_cents as number,
+          comissao: i.platform_fee_cents as number,
+          liquido: i.artisan_amount_cents as number,
+        };
+      });
+    },
+  });
+}
+
+const Card = ({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) => (
+  <div className="border border-border p-4">
+    <div className="text-[0.55rem] tracking-[0.16em] uppercase text-muted-foreground mb-1">
+      {rotulo}
+    </div>
+    <div className="font-display text-[1.4rem]">{valor}</div>
+    {nota && <div className="text-[0.6rem] text-muted-foreground mt-0.5">{nota}</div>}
+  </div>
+);
+
+const FinanceiroTab = () => {
+  const { data: linhas, isLoading, error } = useExtrato();
+  const [filtro, setFiltro] = useState<"todos" | "liquidado" | "pendente">("todos");
+
+  const totais = useMemo(() => {
+    const l = linhas ?? [];
+    const liq = l.filter((x) => LIQUIDADO.includes(x.status));
+    const pend = l.filter((x) => x.status === "pending");
+    const est = l.filter((x) => x.status === "refunded");
+    return {
+      recebido: liq.reduce((s, x) => s + x.liquido, 0),
+      comissao: liq.reduce((s, x) => s + x.comissao, 0),
+      bruto: liq.reduce((s, x) => s + x.bruto, 0),
+      pendente: pend.reduce((s, x) => s + x.liquido, 0),
+      estornado: est.reduce((s, x) => s + x.liquido, 0),
+      vendas: liq.length,
+    };
+  }, [linhas]);
+
+  const visiveis = useMemo(() => {
+    const l = linhas ?? [];
+    if (filtro === "liquidado") return l.filter((x) => LIQUIDADO.includes(x.status));
+    if (filtro === "pendente") return l.filter((x) => x.status === "pending");
+    return l;
+  }, [linhas, filtro]);
+
+  const exportarCsv = () => {
+    if (visiveis.length === 0) {
+      toast.error("Nada para exportar.");
+      return;
+    }
+    const linhasCsv = visiveis.map((x) =>
+      [
+        new Date(x.data).toLocaleDateString("pt-BR"),
+        STATUS_LABEL[x.status] ?? x.status,
+        x.produto,
+        x.quantidade,
+        (x.bruto / 100).toFixed(2).replace(".", ","),
+        (x.comissao / 100).toFixed(2).replace(".", ","),
+        (x.liquido / 100).toFixed(2).replace(".", ","),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+    const csv = [
+      "data,situacao,produto,quantidade,bruto,comissao,liquido",
+      ...linhasCsv,
+    ].join("\n");
+    // BOM para o Excel abrir acentuação corretamente.
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "extrato-feito-a-mao.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="border border-destructive/30 bg-destructive/[0.05] p-5 text-[0.82rem]">
+        Não foi possível carregar seu extrato agora. Tente novamente em instantes.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="font-display text-[1.3rem] mb-1">Financeiro</h2>
+      <p className="text-[0.75rem] text-muted-foreground mb-4">
+        Sua parte de cada venda é depositada automaticamente na conta cadastrada em Recebimento,
+        já descontada a comissão. Não é preciso pedir saque.
+      </p>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <Card
+          rotulo="Recebido"
+          valor={formatCents(totais.recebido)}
+          nota={`${totais.vendas} venda${totais.vendas === 1 ? "" : "s"}`}
+        />
+        <Card rotulo="Comissão da plataforma" valor={formatCents(totais.comissao)} />
+        <Card rotulo="Aguardando pagamento" valor={formatCents(totais.pendente)} />
+        <Card rotulo="Estornado" valor={formatCents(totais.estornado)} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {(
+          [
+            ["todos", "Tudo"],
+            ["liquidado", "Recebidas"],
+            ["pendente", "Pendentes"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setFiltro(k)}
+            className={`px-3 py-1.5 text-[0.62rem] tracking-[0.12em] uppercase border transition-colors ${
+              filtro === k
+                ? "border-terra text-terra bg-terra/[0.06]"
+                : "border-border text-muted-foreground hover:border-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          onClick={exportarCsv}
+          className="ml-auto flex items-center gap-1.5 border border-foreground px-3 py-1.5 text-[0.62rem] tracking-[0.12em] uppercase hover:bg-foreground hover:text-background transition-colors"
+        >
+          <Download className="w-3 h-3" />
+          Exportar CSV
+        </button>
+      </div>
+
+      {visiveis.length === 0 ? (
+        <div className="border border-dashed border-border py-14 text-center">
+          <p className="text-[0.85rem] text-muted-foreground mb-1">Nenhuma venda registrada ainda.</p>
+          <p className="text-[0.7rem] text-muted-foreground">
+            Assim que sua primeira peça for vendida, ela aparece aqui.
+          </p>
+        </div>
+      ) : (
+        <div className="border border-border overflow-x-auto">
+          <table className="w-full text-[0.78rem]">
+            <thead>
+              <tr className="border-b border-border text-left">
+                {["Data", "Peça", "Situação", "Bruto", "Comissão", "Você recebe"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2.5 text-[0.55rem] tracking-[0.16em] uppercase text-muted-foreground font-medium whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visiveis.map((x, i) => (
+                <tr key={`${x.order_id}-${i}`} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                    {new Date(x.data).toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {x.produto}
+                    {x.quantidade > 1 && (
+                      <span className="text-muted-foreground"> × {x.quantidade}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-[0.7rem]">{STATUS_LABEL[x.status] ?? x.status}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{formatCents(x.bruto)}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
+                    −{formatCents(x.comissao)}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap font-medium">
+                    {formatCents(x.liquido)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="flex items-start gap-1.5 text-[0.66rem] text-muted-foreground mt-3">
+        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        Os valores seguem o calendário de liquidação do meio de pagamento — cartão costuma levar
+        mais tempo que PIX. Consulte o extrato do seu banco para as datas exatas de depósito.
+      </p>
+    </div>
+  );
+};
+
 export default FinanceiroTab;
