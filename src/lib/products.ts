@@ -85,44 +85,103 @@ async function artisanNames(ids: string[]): Promise<Map<string, string>> {
   return map;
 }
 
+/** Escapa caracteres que possuem significado na expressão OR do PostgREST. */
+function sanitizeFilterValue(value: string): string {
+  return value.trim().replace(/[,%()]/g, " ").replace(/\s+/g, " ");
+}
+
 export function useProducts(filters: ProductFilters = {}) {
   const { search, categories, states, maxPriceCents, sort = "relevance", limit } = filters;
 
   return useQuery({
-    queryKey: ["products", search ?? "", categories ?? [], states ?? [], maxPriceCents ?? null, sort, limit ?? null],
+    queryKey: [
+      "products",
+      search?.trim() ?? "",
+      [...(categories ?? [])].sort(),
+      [...(states ?? [])].sort(),
+      maxPriceCents ?? null,
+      sort,
+      limit ?? null,
+    ],
     queryFn: async (): Promise<GridItem[]> => {
       let matchedArtisans: string[] = [];
+
       if (search && search.trim()) {
-        const term = search.trim();
-        const { data: profs } = await supabase
+        const term = sanitizeFilterValue(search);
+        const { data: profs, error: profileError } = await supabase
           .from("profiles")
           .select("user_id")
           .or(`display_name.ilike.%${term}%,shop_name.ilike.%${term}%`);
-        matchedArtisans = (profs ?? []).map((p) => p.user_id);
+        if (!profileError) {
+          matchedArtisans = (profs ?? []).map((p) => p.user_id);
+        }
       }
 
-      let query = supabase.from("products").select("*").eq("is_active", true);
+      let query = supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true);
 
+      // Busca também por cidade, UF e categoria, além de nome/descrição/artesão.
       if (search && search.trim()) {
-        const term = search.trim().replace(/[(),]/g, " ");
-        const clauses = [`name.ilike.%${term}%`, `description.ilike.%${term}%`];
-        if (matchedArtisans.length > 0) clauses.push(`artisan_user_id.in.(${matchedArtisans.join(",")})`);
+        const term = sanitizeFilterValue(search);
+        const clauses = [
+          `name.ilike.%${term}%`,
+          `description.ilike.%${term}%`,
+          `city.ilike.%${term}%`,
+          `state.ilike.%${term}%`,
+          `category.ilike.%${term}%`,
+        ];
+        if (matchedArtisans.length > 0) {
+          clauses.push(`artisan_user_id.in.(${matchedArtisans.join(",")})`);
+        }
         query = query.or(clauses.join(","));
       }
-      if (categories && categories.length > 0) query = query.in("category", categories);
-      if (states && states.length > 0) query = query.in("state", states);
-      if (typeof maxPriceCents === "number") query = query.lte("price_cents", maxPriceCents);
 
-      if (sort === "price_asc") query = query.order("price_cents", { ascending: true });
-      else query = query.order("created_at", { ascending: false });
+      // Case-insensitive: evita falhas quando o cadastro usa "cerâmica" e o
+      // filtro usa "Cerâmica", por exemplo. Múltiplas categorias são OR;
+      // categoria + estado + preço continuam sendo AND.
+      if (categories && categories.length > 0) {
+        const categoryClauses = categories
+          .map(sanitizeFilterValue)
+          .filter(Boolean)
+          .map((category) => `category.ilike.${category}`);
+        if (categoryClauses.length > 0) {
+          query = query.or(categoryClauses.join(","));
+        }
+      }
+
+      if (states && states.length > 0) {
+        const stateClauses = states
+          .map(sanitizeFilterValue)
+          .filter(Boolean)
+          .map((state) => `state.ilike.${state}`);
+        if (stateClauses.length > 0) {
+          query = query.or(stateClauses.join(","));
+        }
+      }
+
+      if (typeof maxPriceCents === "number") {
+        query = query.lte("price_cents", maxPriceCents);
+      }
+
+      if (sort === "price_asc") {
+        query = query.order("price_cents", { ascending: true });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
 
       if (limit) query = query.limit(limit);
 
       const { data, error } = await query;
       if (error) throw error;
 
-      const names = await artisanNames([...new Set((data ?? []).map((p) => p.artisan_user_id))]);
-      return (data ?? []).map((p) => toGridItem(p, names.get(p.artisan_user_id) ?? "Artesão"));
+      const names = await artisanNames([
+        ...new Set((data ?? []).map((p) => p.artisan_user_id)),
+      ]);
+      return (data ?? []).map((p) =>
+        toGridItem(p, names.get(p.artisan_user_id) ?? "Artesão"),
+      );
     },
   });
 }
@@ -147,4 +206,3 @@ export function useMyProducts(userId?: string) {
 // reaisToCents/centsToReaisInput vivem em @/lib/money (módulo puro,
 // sem dependência do Supabase, para poderem ser testados isoladamente).
 export { reaisToCents, centsToReaisInput } from "@/lib/money";
-
