@@ -68,6 +68,51 @@ Deno.serve(async (req) => {
     const tipo: string = evento?.type ?? ''
     const dados = evento?.data ?? {}
 
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } },
+    )
+
+    // ---- eventos de RECEBEDOR (KYC do artesão) ----
+    // Sem tratar isto, o cadastro do artesão fica preso em "em análise" no
+    // nosso banco mesmo depois de aprovado no gateway — e ele nunca
+    // consegue vender, porque criar-pedido exige kyc_status = 'aprovado'.
+    if (tipo.startsWith('recipient.')) {
+      const recipientId: string | null =
+        typeof dados?.id === 'string' && dados.id.startsWith('re_') ? dados.id : null
+      if (!recipientId) return new Response('ok', { status: 200, headers: corsHeaders })
+
+      // Fonte da verdade é a API, não o corpo recebido.
+      const res = await fetch(`https://api.pagar.me/core/v5/recipients/${recipientId}`, {
+        headers: { Authorization: `Basic ${btoa(`${secretKey}:`)}` },
+      })
+      if (!res.ok) {
+        console.error('Falha ao confirmar recebedor', { recipientId, status: res.status })
+        return new Response('retry', { status: 503, headers: corsHeaders })
+      }
+      const rec = await res.json()
+      const status: string = rec?.status ?? 'registration'
+      const kyc =
+        status === 'active' ? 'aprovado'
+        : status === 'refused' ? 'recusado'
+        : status === 'registration' ? 'enviado'
+        : 'enviado'
+
+      await admin
+        .from('artisan_billing')
+        .update({
+          recipient_status: status,
+          kyc_status: kyc,
+          can_withdraw: status === 'active',
+          kyc_url: rec?.kyc_link?.url ?? null,
+          kyc_url_expires_at: rec?.kyc_link?.expiration_date ?? null,
+        })
+        .eq('pagarme_recipient_id', recipientId)
+
+      return new Response('ok', { status: 200, headers: corsHeaders })
+    }
+
     // Eventos order.* trazem o pedido em data; charge.* trazem data.order.
     const pagarmeOrderId: string | null =
       (typeof dados?.id === 'string' && dados.id.startsWith('or_') ? dados.id : null) ??
@@ -101,11 +146,6 @@ Deno.serve(async (req) => {
       return new Response('ok', { status: 200, headers: corsHeaders })
     }
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { persistSession: false } },
-    )
 
     const { data: rows } = await admin
       .from('orders')
