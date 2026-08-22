@@ -68,10 +68,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          artisan_user_id: string
           account_check_digit?: string | null
           account_number?: string | null
           account_type?: string | null
+          artisan_user_id: string
           bank_code?: string | null
           branch_number?: string | null
           can_withdraw?: boolean
@@ -87,10 +87,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          artisan_user_id?: string
           account_check_digit?: string | null
           account_number?: string | null
           account_type?: string | null
+          artisan_user_id?: string
           bank_code?: string | null
           branch_number?: string | null
           can_withdraw?: boolean
@@ -107,26 +107,43 @@ export type Database = {
         }
         Relationships: []
       }
-      platform_settings: {
+      email_log: {
         Row: {
-          default_commission_bps: number
-          id: boolean
-          support_email: string | null
-          updated_at: string
+          created_at: string
+          error: string | null
+          id: string
+          order_id: string | null
+          recipient: string
+          status: string
+          template: string
         }
         Insert: {
-          default_commission_bps?: number
-          id?: boolean
-          support_email?: string | null
-          updated_at?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          order_id?: string | null
+          recipient: string
+          status?: string
+          template: string
         }
         Update: {
-          default_commission_bps?: number
-          id?: boolean
-          support_email?: string | null
-          updated_at?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          order_id?: string | null
+          recipient?: string
+          status?: string
+          template?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_log_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       favorites: {
         Row: {
@@ -159,41 +176,45 @@ export type Database = {
       }
       order_items: {
         Row: {
+          artisan_amount_cents: number
           artisan_user_id: string | null
+          commission_bps: number
           created_at: string
           id: string
           order_id: string
-          total_cents: number
           platform_fee_cents: number
-          commission_bps: number
-          artisan_amount_cents: number
           product_id: string | null
           product_name: string
           quantity: number
+          total_cents: number
           unit_price_cents: number
         }
         Insert: {
+          artisan_amount_cents: number
           artisan_user_id?: string | null
+          commission_bps: number
           created_at?: string
           id?: string
           order_id: string
+          platform_fee_cents: number
           product_id?: string | null
           product_name: string
           quantity: number
+          total_cents: number
           unit_price_cents: number
         }
         Update: {
+          artisan_amount_cents?: number
           artisan_user_id?: string | null
+          commission_bps?: number
           created_at?: string
           id?: string
           order_id?: string
-          total_cents?: number
           platform_fee_cents?: number
-          commission_bps?: number
-          artisan_amount_cents?: number
           product_id?: string | null
           product_name?: string
           quantity?: number
+          total_cents?: number
           unit_price_cents?: number
         }
         Relationships: [
@@ -222,7 +243,9 @@ export type Database = {
           buyer_name: string
           buyer_phone: string | null
           buyer_user_id: string | null
+          canceled_at: string | null
           created_at: string
+          delivered_at: string | null
           id: string
           pagarme_charge_id: string | null
           pagarme_order_id: string | null
@@ -231,10 +254,15 @@ export type Database = {
           pix_expires_at: string | null
           pix_qr_code: string | null
           pix_qr_code_url: string | null
+          refund_reason: string | null
+          shipped_at: string | null
           shipping_address: Json | null
+          shipping_cents: number
           status: string
           subtotal_cents: number
           total_cents: number
+          tracking_carrier: string | null
+          tracking_code: string | null
           updated_at: string
         }
         Insert: {
@@ -245,7 +273,9 @@ export type Database = {
           buyer_name: string
           buyer_phone?: string | null
           buyer_user_id?: string | null
+          canceled_at?: string | null
           created_at?: string
+          delivered_at?: string | null
           id?: string
           pagarme_charge_id?: string | null
           pagarme_order_id?: string | null
@@ -254,10 +284,15 @@ export type Database = {
           pix_expires_at?: string | null
           pix_qr_code?: string | null
           pix_qr_code_url?: string | null
+          refund_reason?: string | null
+          shipped_at?: string | null
           shipping_address?: Json | null
+          shipping_cents?: number
           status?: string
           subtotal_cents: number
           total_cents: number
+          tracking_carrier?: string | null
+          tracking_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -268,7 +303,9 @@ export type Database = {
           buyer_name?: string
           buyer_phone?: string | null
           buyer_user_id?: string | null
+          canceled_at?: string | null
           created_at?: string
+          delivered_at?: string | null
           id?: string
           pagarme_charge_id?: string | null
           pagarme_order_id?: string | null
@@ -277,10 +314,36 @@ export type Database = {
           pix_expires_at?: string | null
           pix_qr_code?: string | null
           pix_qr_code_url?: string | null
+          refund_reason?: string | null
+          shipped_at?: string | null
           shipping_address?: Json | null
+          shipping_cents?: number
           status?: string
           subtotal_cents?: number
           total_cents?: number
+          tracking_carrier?: string | null
+          tracking_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          default_commission_bps: number
+          id: boolean
+          support_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          default_commission_bps?: number
+          id?: boolean
+          support_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          default_commission_bps?: number
+          id?: boolean
+          support_email?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -405,6 +468,33 @@ export type Database = {
         }
         Relationships: []
       }
+      shipping_rates: {
+        Row: {
+          estimated_days: number
+          flat_cents: number
+          free_above_cents: number | null
+          id: string
+          region: string
+          updated_at: string
+        }
+        Insert: {
+          estimated_days?: number
+          flat_cents: number
+          free_above_cents?: number | null
+          id?: string
+          region: string
+          updated_at?: string
+        }
+        Update: {
+          estimated_days?: number
+          flat_cents?: number
+          free_above_cents?: number | null
+          id?: string
+          region?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -435,8 +525,13 @@ export type Database = {
         Args: { _artisan_user_id: string }
         Returns: boolean
       }
-      comissao_bps: {
-        Args: { _artisan_user_id: string }
+      calcular_frete: {
+        Args: { _subtotal_cents: number; _uf: string }
+        Returns: number
+      }
+      comissao_bps: { Args: { _artisan_user_id: string }; Returns: number }
+      decrement_stock: {
+        Args: { _product_id: string; _qty: number }
         Returns: number
       }
       has_role: {
@@ -446,7 +541,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_order_seller: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
       promote_to_admin: { Args: { _email: string }; Returns: string }
+      regiao_da_uf: { Args: { _uf: string }; Returns: string }
     }
     Enums: {
       app_role: "buyer" | "artisan" | "admin"
