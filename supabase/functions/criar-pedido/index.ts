@@ -1,5 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { cotarFrete } from '../_shared/correios.ts'
+import { cotarFreteME } from '../_shared/melhor-envio.ts'
 import { z } from 'npm:zod@3'
 
 const BodySchema = z.object({
@@ -88,7 +90,7 @@ Deno.serve(async (req) => {
     const ids = [...new Set(body.items.map((i) => i.product_id))]
     const { data: products, error: prodErr } = await admin
       .from('products')
-      .select('id, name, price_cents, stock, is_active, artisan_user_id')
+      .select('id, name, price_cents, stock, is_active, artisan_user_id, weight_grams, length_cm, width_cm, height_cm')
       .in('id', ids)
     if (prodErr) return json({ error: 'Não foi possível validar os produtos.' }, 500)
 
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
     const artisanIds = [...new Set((products ?? []).map((p) => p.artisan_user_id))]
     const { data: billing } = await admin
       .from('artisan_billing')
-      .select('artisan_user_id, pagarme_recipient_id, commission_bps, kyc_status, can_withdraw')
+      .select('artisan_user_id, pagarme_recipient_id, commission_bps, kyc_status, can_withdraw, origin_zip_code, shipping_carrier')
       .in('artisan_user_id', artisanIds)
     const billingById = new Map((billing ?? []).map((b) => [b.artisan_user_id, b]))
 
@@ -146,14 +148,77 @@ Deno.serve(async (req) => {
 
     // Frete calculado no servidor pela UF de entrega. O cliente nunca envia
     // valor de frete: seria o mesmo furo de deixar ele mandar o preço.
-    let frete = 0
+    // Frete real dos Correios, por artesão (cada um despacha da própria
+    // cidade). Some falhar, faltar contrato configurado, ou o artesão ainda
+    // não ter cadastrado o CEP de origem, cai no valor fixo por região —
+    // nunca trava o checkout por causa de uma integração externa.
+    // Frete por artesão, conforme a transportadora que ELE escolheu
+    // (artisan_billing.shipping_carrier) — não o comprador a cada compra.
+    // Cada modo cai no frete fixo por região se a integração falhar, não
+    // estiver configurada, ou faltar dado de origem: o checkout nunca trava
+    // por causa de um provedor externo.
     const uf = String(body.shipping_address?.state ?? '').toUpperCase()
-    if (uf) {
-      const { data: f } = await admin.rpc('calcular_frete', {
-        _uf: uf, _subtotal_cents: subtotal,
-      })
-      if (typeof f === 'number') frete = f
-      else return json({ error: 'Não entregamos nesse estado no momento.' }, 400)
+    const cepDestino = String(body.shipping_address?.zip_code ?? '')
+    if (!uf) return json({ error: 'Endereço de entrega incompleto.' }, 400)
+
+    let frete = 0
+    const freteInfoPorArtesao = new Map<string, { carrier: string; cost_cents: number }>()
+    const porArtesaoParaFrete = [...new Set(lines.map((l) => l.artisan_user_id))]
+
+    for (const artisanId of porArtesaoParaFrete) {
+      const itensDoArtesao = lines.filter((l) => l.artisan_user_id === artisanId)
+      const subtotalArtesao = itensDoArtesao.reduce((s, l) => s + l.total_cents, 0)
+      const origem = billingById.get(artisanId)
+      const carrier = origem?.shipping_carrier ?? 'combinar'
+      let freteArtesao: number | null = null
+
+      if (carrier === 'combinar') {
+        freteArtesao = 0
+      } else if (carrier === 'correios' && origem?.origin_zip_code && cepDestino) {
+        try {
+          const produtosDoArtesao = (products ?? []).filter((p) => p.artisan_user_id === artisanId)
+          const pacote = {
+            peso_g: itensDoArtesao.reduce((s, l) => {
+              const p = produtosDoArtesao.find((x) => x.id === l.product_id)
+              return s + (p?.weight_grams ?? 300) * l.quantity
+            }, 0) || 300,
+            comprimento_cm: Math.max(...produtosDoArtesao.map((p) => p.length_cm ?? 16), 16),
+            largura_cm: Math.max(...produtosDoArtesao.map((p) => p.width_cm ?? 11), 11),
+            altura_cm: produtosDoArtesao.reduce((s, l) => s + (l.height_cm ?? 2), 0) || 2,
+          }
+          const cotacoes = await cotarFrete(origem.origin_zip_code, cepDestino, pacote)
+          const pac = cotacoes.find((c) => c.nome === 'PAC')
+          if (pac) freteArtesao = pac.price_cents
+        } catch (e) {
+          console.error('Correios indisponível, usando frete fixo', e instanceof Error ? e.message : 'unknown')
+        }
+      } else if (carrier === 'melhor_envio' && origem?.origin_zip_code && cepDestino) {
+        try {
+          const produtosDoArtesao = (products ?? []).filter((p) => p.artisan_user_id === artisanId)
+          const pacoteME = {
+            peso_kg: (itensDoArtesao.reduce((s, l) => {
+              const p = produtosDoArtesao.find((x) => x.id === l.product_id)
+              return s + (p?.weight_grams ?? 300) * l.quantity
+            }, 0) || 300) / 1000,
+            comprimento_cm: Math.max(...produtosDoArtesao.map((p) => p.length_cm ?? 16), 16),
+            largura_cm: Math.max(...produtosDoArtesao.map((p) => p.width_cm ?? 11), 11),
+            altura_cm: produtosDoArtesao.reduce((s, l) => s + (l.height_cm ?? 2), 0) || 2,
+          }
+          const cotacoesME = await cotarFreteME(origem.origin_zip_code, cepDestino, pacoteME, subtotalArtesao)
+          const maisBarato = cotacoesME.sort((a, b) => a.price_cents - b.price_cents)[0]
+          if (maisBarato) freteArtesao = maisBarato.price_cents
+        } catch (e) {
+          console.error('Melhor Envio indisponível, usando frete fixo', e instanceof Error ? e.message : 'unknown')
+        }
+      }
+
+      if (freteArtesao === null) {
+        const { data: f } = await admin.rpc('calcular_frete', { _uf: uf, _subtotal_cents: subtotalArtesao })
+        if (typeof f !== 'number') return json({ error: 'Não entregamos nesse estado no momento.' }, 400)
+        freteArtesao = f
+      }
+      frete += freteArtesao
+      freteInfoPorArtesao.set(artisanId, { carrier, cost_cents: freteArtesao })
     }
     const total = subtotal + frete
 
@@ -221,6 +286,21 @@ Deno.serve(async (req) => {
     if (itemsErr) {
       await admin.from('orders').update({ status: 'failed' }).eq('id', order.id)
       return json({ error: 'Não foi possível criar o pedido.' }, 500)
+    }
+
+    // Uma remessa por artesão, já com a transportadora e o custo definidos
+    // no cálculo do frete acima. O artesão gera a etiqueta (ou marca
+    // "combinado") depois que o pagamento é confirmado.
+    const shipmentsRows = [...freteInfoPorArtesao.entries()].map(([artisanId, info]) => ({
+      order_id: order.id,
+      artisan_user_id: artisanId,
+      carrier: info.carrier,
+      cost_cents: info.cost_cents,
+      status: 'pendente' as const,
+    }))
+    if (shipmentsRows.length) {
+      const { error: shipErr } = await admin.from('shipments').insert(shipmentsRows)
+      if (shipErr) console.error('Falha ao criar remessas', shipErr.message)
     }
 
     // --- Pagar.me ---

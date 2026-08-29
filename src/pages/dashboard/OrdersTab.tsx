@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCents } from "@/lib/data";
-import { useState } from "react";
-import { Loader2, Truck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Truck, Handshake } from "lucide-react";
 import { toast } from "sonner";
 
 export interface ArtisanOrder {
@@ -42,11 +42,36 @@ export const EnvioControls = ({
   onChanged: () => void;
 }) => {
   const [codigo, setCodigo] = useState("");
+  const [nota, setNota] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [remessa, setRemessa] = useState<{
+    id: string;
+    carrier: "correios" | "melhor_envio" | "combinar";
+    status: string;
+    tracking_code: string | null;
+    label_url: string | null;
+  } | null>(null);
+  const [carregandoRemessa, setCarregandoRemessa] = useState(true);
+
+  const carregarRemessa = async () => {
+    setCarregandoRemessa(true);
+    const { data } = await supabase
+      .from("shipments")
+      .select("id, carrier, status, tracking_code, label_url")
+      .eq("order_id", order.id)
+      .maybeSingle();
+    setRemessa(data as typeof remessa);
+    setCarregandoRemessa(false);
+  };
+
+  useEffect(() => {
+    void carregarRemessa();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id]);
 
   if (!["paid", "processing", "shipped"].includes(order.status)) return null;
 
-  const atualizar = async (status: string) => {
+  const atualizarStatus = async (status: string) => {
     setSalvando(true);
     const patch: { status: string; tracking_code?: string } = { status };
     if (status === "shipped" && codigo.trim()) patch.tracking_code = codigo.trim();
@@ -57,7 +82,6 @@ export const EnvioControls = ({
       return;
     }
     if (status === "shipped") {
-      // Avisa o comprador. Falha de e-mail não desfaz o envio.
       void supabase.functions.invoke("enviar-email", {
         body: { order_id: order.id, template: "pedido_enviado" },
       });
@@ -66,38 +90,117 @@ export const EnvioControls = ({
     onChanged();
   };
 
+  const gerarEtiqueta = async () => {
+    setSalvando(true);
+    const { data, error } = await supabase.functions.invoke("gerar-etiqueta", {
+      body: { order_id: order.id, combinar_nota: nota.trim() || undefined },
+    });
+    setSalvando(false);
+    if (error) {
+      let motivo: string | null = null;
+      const ctx = (error as { context?: Response }).context;
+      if (ctx?.json) {
+        try {
+          const corpo = await ctx.json();
+          if (typeof corpo?.error === "string") motivo = corpo.error;
+        } catch {
+          /* corpo não era JSON */
+        }
+      }
+      toast.error(motivo ?? "Não foi possível processar o envio.");
+      return;
+    }
+    if (data?.tracking_code) {
+      toast.success(`Etiqueta gerada! Rastreio: ${data.tracking_code}`);
+      void atualizarStatus("shipped");
+    } else {
+      toast.success("Combinado registrado com o comprador.");
+      void atualizarStatus("shipped");
+    }
+    await carregarRemessa();
+  };
+
+  if (carregandoRemessa) {
+    return <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground mt-2" />;
+  }
+
+  const jaProcessado = remessa && ["postado", "em_transito", "entregue", "combinado", "etiqueta_gerada"].includes(remessa.status);
+
   return (
     <div className="flex flex-wrap items-center gap-2 mt-2">
       {order.status === "paid" && (
         <button
-          onClick={() => atualizar("processing")}
+          onClick={() => atualizarStatus("processing")}
           disabled={salvando}
           className="border border-border px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:border-foreground transition-colors disabled:opacity-50"
         >
           Marcar em preparo
         </button>
       )}
-      {(order.status === "paid" || order.status === "processing") && (
+
+      {(order.status === "paid" || order.status === "processing") && !jaProcessado && (
         <>
-          <input
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-            placeholder="Código de rastreio"
-            className="border border-border bg-background px-2 py-1.5 text-[0.7rem] outline-none focus:border-terra w-[170px]"
-          />
-          <button
-            onClick={() => atualizar("shipped")}
-            disabled={salvando}
-            className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
-            Marcar enviado
-          </button>
+          {remessa?.carrier === "combinar" ? (
+            <>
+              <input
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                placeholder="Como combinou a entrega (opcional)"
+                className="border border-border bg-background px-2 py-1.5 text-[0.7rem] outline-none focus:border-terra w-[220px]"
+              />
+              <button
+                onClick={gerarEtiqueta}
+                disabled={salvando}
+                className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Handshake className="w-3 h-3" />}
+                Marcar como combinado
+              </button>
+            </>
+          ) : remessa?.carrier === "correios" || remessa?.carrier === "melhor_envio" ? (
+            <button
+              onClick={gerarEtiqueta}
+              disabled={salvando}
+              className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
+              Gerar etiqueta e enviar
+            </button>
+          ) : (
+            <>
+              <input
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+                placeholder="Código de rastreio"
+                className="border border-border bg-background px-2 py-1.5 text-[0.7rem] outline-none focus:border-terra w-[170px]"
+              />
+              <button
+                onClick={() => atualizarStatus("shipped")}
+                disabled={salvando}
+                className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
+                Marcar enviado
+              </button>
+            </>
+          )}
         </>
       )}
+
+      {remessa?.label_url && (
+        <a
+          href={remessa.label_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[0.62rem] tracking-[0.1em] uppercase text-terra underline underline-offset-2"
+        >
+          Ver etiqueta
+        </a>
+      )}
+
       {order.status === "shipped" && (
         <button
-          onClick={() => atualizar("delivered")}
+          onClick={() => atualizarStatus("delivered")}
           disabled={salvando}
           className="border border-sage text-sage px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:bg-sage hover:text-background transition-colors disabled:opacity-50"
         >

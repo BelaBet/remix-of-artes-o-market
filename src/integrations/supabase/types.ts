@@ -65,6 +65,15 @@ export type Database = {
           kyc_url_expires_at: string | null
           pagarme_recipient_id: string | null
           recipient_status: string | null
+          origin_zip_code: string | null
+          origin_street: string | null
+          origin_number: string | null
+          origin_complement: string | null
+          origin_district: string | null
+          origin_city: string | null
+          origin_state: string | null
+          origin_phone: string | null
+          shipping_carrier: Database["public"]["Enums"]["shipping_carrier"]
           updated_at: string
         }
         Insert: {
@@ -84,6 +93,15 @@ export type Database = {
           kyc_url_expires_at?: string | null
           pagarme_recipient_id?: string | null
           recipient_status?: string | null
+          origin_zip_code?: string | null
+          origin_street?: string | null
+          origin_number?: string | null
+          origin_complement?: string | null
+          origin_district?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_phone?: string | null
+          shipping_carrier?: Database["public"]["Enums"]["shipping_carrier"]
           updated_at?: string
         }
         Update: {
@@ -103,6 +121,15 @@ export type Database = {
           kyc_url_expires_at?: string | null
           pagarme_recipient_id?: string | null
           recipient_status?: string | null
+          origin_zip_code?: string | null
+          origin_street?: string | null
+          origin_number?: string | null
+          origin_complement?: string | null
+          origin_district?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_phone?: string | null
+          shipping_carrier?: Database["public"]["Enums"]["shipping_carrier"]
           updated_at?: string
         }
         Relationships: []
@@ -468,6 +495,81 @@ export type Database = {
         }
         Relationships: []
       }
+      shipments: {
+        Row: {
+          artisan_user_id: string
+          carrier: Database["public"]["Enums"]["shipping_carrier"]
+          combinar_nota: string | null
+          cost_cents: number
+          created_at: string
+          delivered_at: string | null
+          error: string | null
+          id: string
+          label_url: string | null
+          last_status_detail: string | null
+          last_synced_at: string | null
+          melhor_envio_cart_id: string | null
+          melhor_envio_order_id: string | null
+          order_id: string
+          plp_id: string | null
+          posted_at: string | null
+          service_code: string | null
+          service_name: string | null
+          status: string
+          tracking_code: string | null
+          tracking_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          artisan_user_id: string
+          carrier: Database["public"]["Enums"]["shipping_carrier"]
+          combinar_nota?: string | null
+          cost_cents?: number
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          id?: string
+          label_url?: string | null
+          last_status_detail?: string | null
+          last_synced_at?: string | null
+          melhor_envio_cart_id?: string | null
+          melhor_envio_order_id?: string | null
+          order_id: string
+          plp_id?: string | null
+          posted_at?: string | null
+          service_code?: string | null
+          service_name?: string | null
+          status?: string
+          tracking_code?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          artisan_user_id?: string
+          carrier?: Database["public"]["Enums"]["shipping_carrier"]
+          combinar_nota?: string | null
+          cost_cents?: number
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          id?: string
+          label_url?: string | null
+          last_status_detail?: string | null
+          last_synced_at?: string | null
+          melhor_envio_cart_id?: string | null
+          melhor_envio_order_id?: string | null
+          order_id?: string
+          plp_id?: string | null
+          posted_at?: string | null
+          service_code?: string | null
+          service_name?: string | null
+          status?: string
+          tracking_code?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shipping_rates: {
         Row: {
           estimated_days: number
@@ -539,6 +641,7 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "artisan" | "admin"
+      shipping_carrier: "correios" | "melhor_envio" | "combinar"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -667,6 +770,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "artisan", "admin"],
+      shipping_carrier: ["correios", "melhor_envio", "combinar"],
     },
   },
 } as const
