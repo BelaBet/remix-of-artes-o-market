@@ -637,6 +637,12 @@ export type Database = {
         Returns: number
       }
       promote_to_admin: { Args: { _email: string }; Returns: string }
+      ativar_dados_demo: { Args: Record<PropertyKey, never>; Returns: undefined }
+      desativar_dados_demo: { Args: Record<PropertyKey, never>; Returns: undefined }
+      status_dados_demo: {
+        Args: Record<PropertyKey, never>
+        Returns: { ativo: boolean; artesaos: number; produtos: number }[]
+      }
       regiao_da_uf: { Args: { _uf: string }; Returns: string }
     }
     Enums: {

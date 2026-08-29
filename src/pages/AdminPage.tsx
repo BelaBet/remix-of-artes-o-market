@@ -7,6 +7,7 @@ import { formatCents } from "@/lib/data";
 import { toast } from "sonner";
 import { Loader2, ShieldAlert } from "lucide-react";
 import SEO from "@/components/SEO";
+import DemoDataControl from "@/components/DemoDataControl";
 
 type Tab = "usuarios" | "pedidos" | "produtos" | "auditoria";
 
@@ -79,6 +80,8 @@ const AdminPage = () => {
         <p className="text-[0.74rem] text-muted-foreground mb-4">
           Toda alteração feita aqui fica registrada na aba Auditoria, com autor e valores anteriores.
         </p>
+
+        <DemoDataControl />
 
         <a
           href="/admin/vendas"
