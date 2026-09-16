@@ -53,6 +53,12 @@ export const EnvioControls = ({
   } | null>(null);
   const [carregandoRemessa, setCarregandoRemessa] = useState(true);
 
+  const [cotacoes, setCotacoes] = useState<
+    { service_id: number; nome: string; transportadora: string; price_cents: number; prazo_dias: number }[] | null
+  >(null);
+  const [serviceId, setServiceId] = useState<number | null>(null);
+  const [cotando, setCotando] = useState(false);
+
   const carregarRemessa = async () => {
     setCarregandoRemessa(true);
     const { data } = await supabase
@@ -70,6 +76,32 @@ export const EnvioControls = ({
   }, [order.id]);
 
   if (!["paid", "processing", "shipped"].includes(order.status)) return null;
+
+  const cotarFrete = async () => {
+    setCotando(true);
+    setCotacoes(null);
+    setServiceId(null);
+    const { data, error } = await supabase.functions.invoke("cotar-frete-me", {
+      body: { order_id: order.id },
+    });
+    setCotando(false);
+    if (error || !data?.cotacoes?.length) {
+      let motivo: string | null = null;
+      const ctx = (error as { context?: Response } | undefined)?.context;
+      if (ctx?.json) {
+        try {
+          const corpo = await ctx.json();
+          if (typeof corpo?.error === "string") motivo = corpo.error;
+        } catch {
+          /* corpo não era JSON */
+        }
+      }
+      toast.error(motivo ?? "Nenhum serviço de transporte disponível para esta rota.");
+      return;
+    }
+    setCotacoes(data.cotacoes);
+    setServiceId(data.cotacoes[0].service_id);
+  };
 
   const atualizarStatus = async (status: string) => {
     setSalvando(true);
@@ -91,9 +123,17 @@ export const EnvioControls = ({
   };
 
   const gerarEtiqueta = async () => {
+    if (remessa?.carrier === "melhor_envio" && !serviceId) {
+      toast.error("Cote o frete e escolha um serviço antes de gerar a etiqueta.");
+      return;
+    }
     setSalvando(true);
     const { data, error } = await supabase.functions.invoke("gerar-etiqueta", {
-      body: { order_id: order.id, combinar_nota: nota.trim() || undefined },
+      body: {
+        order_id: order.id,
+        combinar_nota: nota.trim() || undefined,
+        service_id: serviceId ?? undefined,
+      },
     });
     setSalvando(false);
     if (error) {
@@ -157,7 +197,7 @@ export const EnvioControls = ({
                 Marcar como combinado
               </button>
             </>
-          ) : remessa?.carrier === "correios" || remessa?.carrier === "melhor_envio" ? (
+          ) : remessa?.carrier === "correios" ? (
             <button
               onClick={gerarEtiqueta}
               disabled={salvando}
@@ -166,6 +206,41 @@ export const EnvioControls = ({
               {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
               Gerar etiqueta e enviar
             </button>
+          ) : remessa?.carrier === "melhor_envio" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {!cotacoes ? (
+                <button
+                  onClick={cotarFrete}
+                  disabled={cotando}
+                  className="border border-border px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:border-foreground transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {cotando && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Cotar frete
+                </button>
+              ) : (
+                <>
+                  <select
+                    value={serviceId ?? ""}
+                    onChange={(e) => setServiceId(Number(e.target.value))}
+                    className="border border-border bg-background px-2 py-1.5 text-[0.7rem] outline-none focus:border-terra"
+                  >
+                    {cotacoes.map((c) => (
+                      <option key={c.service_id} value={c.service_id}>
+                        {c.transportadora} {c.nome} — {formatCents(c.price_cents)} ({c.prazo_dias}d)
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={gerarEtiqueta}
+                    disabled={salvando || !serviceId}
+                    className="bg-espresso text-parchment px-3 py-1.5 text-[0.6rem] tracking-[0.12em] uppercase hover:brightness-125 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
+                    Gerar etiqueta e enviar
+                  </button>
+                </>
+              )}
+            </div>
           ) : (
             <>
               <input

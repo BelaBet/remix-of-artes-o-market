@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const { data: itens } = await admin
       .from('order_items')
-      .select('product_id, product_name, quantity')
+      .select('product_id, product_name, quantity, unit_price_cents')
       .eq('order_id', orderId).eq('artisan_user_id', artisanId)
     if (!itens?.length) return json({ error: 'Nenhum item seu neste pedido.' }, 404)
 
@@ -149,7 +149,11 @@ Deno.serve(async (req) => {
         const serviceId = Number(body?.service_id ?? 0)
         if (!serviceId) return json({ error: 'Escolha um serviço de transporte antes de gerar a etiqueta.' }, 400)
 
-        const subtotalArtesao = itens.reduce((s, i) => s + (produtos?.length ?? 0), 0) // valor declarado simplificado
+        // Valor declarado = soma real dos itens (em centavos), não um
+        // placeholder: o seguro dos Correios/transportadora é sobre o
+        // valor de mercado da mercadoria, senão o ressarcimento em caso de
+        // extravio fica errado.
+        const subtotalArtesao = itens.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0)
         const { cart_id } = await adicionarAoCarrinhoME({
           service_id: serviceId, pacote: pacoteME, remetente: remetenteME, destinatario: destinatarioME,
           valorDeclarado: subtotalArtesao || 10000,
